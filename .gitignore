@@ -3,3 +3,4 @@ company_overview_dataset/overview
 daily_prices_dataset/prices
 news_sentiment_dataset/sentiments
 *.log
+*.json
