@@ -4,3 +4,4 @@ daily_prices_dataset/prices
 news_sentiment_dataset/sentiments
 *.log
 *.json
+*.csv
