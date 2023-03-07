@@ -51,15 +51,12 @@ def get_stockprice_all(stocks_to_watch: list):
         with open(f'prices/{ticker}.json', 'w') as outfile:
             json.dump(data, outfile, indent=4)
 
-# get table from dynamodb
-def get_table(table_name: str):
-    
-    return table
 
-dynamodb = boto3.resource('dynamodb')
+# define a boto resource in the ohio region
+dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
 table = dynamodb.Table('StockSentiment')
-# get the a list of tickers sorted by frequency
-sentiment_ticker_list = get_table('sentiment').scan()['Items']
+# get all the tickers in the table sorted by frequency
+sentiment_ticker_list = pd.DataFrame(table.scan()['Stock'])
 print(sentiment_ticker_list)
 # get a list of tickers sorted by frequency
 # sentiment_ticker_list = sentiment_df['ticker'].value_counts().index.tolist()
