@@ -23,13 +23,13 @@ def getRecommendedStocks(predgoal = 'Weekly'):
     # (I took this from https://www.nasdaq.com/, it's just the top 5 I sawthere)
     # this if statement should actually do different stuff based on predgoal
     if predgoal == _valid_predgoals[0]:
-        return pd.read_csv(os.path.join(os.path.abspath(__file__), datapth, 'daily_recommendations.csv'))
+        return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), datapth, 'daily_recommendations.csv'))
     if predgoal == _valid_predgoals[1]:
-        return pd.read_csv(os.path.join(os.path.abspath(__file__), datapth, 'weekly_recommendations.csv'))
-    return pd.read_csv(os.path.join(os.path.abspath(__file__), datapth, 'monthly_recommendations.csv'))
+        return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), datapth, 'weekly_recommendations.csv'))
+    return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), datapth, 'monthly_recommendations.csv'))
 
 # returns a pandas dataframe listing the accuracy of the model in the past for each type of prediction
 # the input is how many days back from right now you want it to show
 def getPastAccuracy(time_back = 100):
     # TODO: actually do this, right now it just returns a randomly generated list
-    return pd.read_csv(os.path.join(os.path.abspath(__file__), datapth, 'past_accuracy.csv'))
+    return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), datapth, 'past_accuracy.csv'))
