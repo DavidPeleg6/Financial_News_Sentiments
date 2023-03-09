@@ -56,6 +56,29 @@ def getRecommendedStocks(predgoal : str = 'Weekly') -> pd.DataFrame:
     return _RecommendedStocksCache(predgoal, time)
 
 
+def getSentimentData() -> pd.DataFrame:
+    """
+    returns a pandas dataframe structured as follows:
+    company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
+    """
+    # specify key and secret key
+    # aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
+    # aws_secret_access_key = os.environ['AWS_SECRET_ACCESS_KEY']
+    # # create a boto3 client
+    # client = boto3.client('dynamodb', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+    # # get a list of all items in the Stock column sorted by frequency
+    # sentiment_ticker_list = pd.DataFrame(client.scan(TableName='StockSentiment')['Items'])
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
+    table = dynamodb.Table('StockSentiment')
+    # get a list of all items in the Stock column sorted by frequency
+    sentiment_ticker_list = pd.DataFrame(table.scan()['Items'])
+    # convert Date column to datetime
+    sentiment_ticker_list['Date'] = pd.to_datetime(sentiment_ticker_list['Date'])
+    # make the index the Date column
+    sentiment_ticker_list = sentiment_ticker_list.set_index('Date').sort_index(ascending=False)
+    return sentiment_ticker_list
+
+
 @st.cache_data
 def _RecommendedStocksCache(predgoal : str, time : datetime.datetime) -> pd.DataFrame:
     # TODO: actually aquire data from the model, right now it just returns this constant thing

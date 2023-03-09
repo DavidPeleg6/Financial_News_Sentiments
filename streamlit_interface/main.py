@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd # REMOVE THIS LATER, YOU'RE NOT SUPPOSED TO DIRECTLY USE THAT HERE
 import numpy as np # REMOVE THIS LATER, YOU'RE NOT SUPPOSED TO DIRECTLY USE THAT HERE
 
-from dataLoader import getRecommendedStocks, getPastAccuracy
+from dataLoader import getRecommendedStocks, getPastAccuracy, getSentimentData
 
 st.title('Avihai-Dudu project WIP stream UI')
 
@@ -14,6 +14,7 @@ st.dataframe(data = getRecommendedStocks(predgoal = option))
 
 st.write('The prediction is just a random number, everything else is constant')
 
+st.dataframe(data = getSentimentData())
 st.header('Past accuracy (random numbers):')
 
 st.line_chart(data = getPastAccuracy(), x = 'Day', y = ['Daily', 'Weekly', 'Monthly'], use_container_width = True)
