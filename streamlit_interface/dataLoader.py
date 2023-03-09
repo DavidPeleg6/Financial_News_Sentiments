@@ -64,14 +64,15 @@ def getSentimentData() -> pd.DataFrame:
     # specify key and secret key
     aws_access_key_id = os.environ['DB_ACCESS_KEY']
     aws_secret_access_key = os.environ['DB_SECRET_KEY']
-    # create a boto3 client
-    dynamodb = boto3.client('dynamodb', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name='us-east-2')
+    # # create a boto3 client
+    # dynamodb = boto3.client('dynamodb', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name='us-east-2')
+    # # get a list of all items in the Stock column sorted by frequency
+    # sentiment_ticker_list = pd.DataFrame(dynamodb.scan(TableName='StockSentiment')['Items'])
+    
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+    table = dynamodb.Table('StockSentiment')
     # get a list of all items in the Stock column sorted by frequency
-    sentiment_ticker_list = pd.DataFrame(dynamodb.scan(TableName='StockSentiment')['Items'])
-    # dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
-    # table = dynamodb.Table('StockSentiment')
-    # get a list of all items in the Stock column sorted by frequency
-    # sentiment_ticker_list = pd.DataFrame(table.scan()['Items'])
+    sentiment_ticker_list = pd.DataFrame(table.scan()['Items'])
     # convert Date column to datetime
     sentiment_ticker_list['Date'] = pd.to_datetime(sentiment_ticker_list['Date'])
     # make the index the Date column
