@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import datetime
 import os
+import boto3
+
 
 _update_interval = datetime.timedelta(days=1)
 
@@ -38,6 +40,7 @@ def _checkIfCacheUpdate(filename : str) -> datetime.datetime:
         return now
     # elapsed time is smaller than _update_interval. Keep cache the same
     return last
+
 
 def getRecommendedStocks(predgoal : str = 'Weekly') -> pd.DataFrame:
     """
