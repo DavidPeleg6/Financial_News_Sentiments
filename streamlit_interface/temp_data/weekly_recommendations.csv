@@ -1,0 +1,4 @@
+Company name,Ticker,Prediction,Sentiment,Accuracy
+Weekly,TSLA,0.0014135170309316214,-1,50
+Prediction,NVDA,0.5389648298760777,0,20
+Test,AAPL,0.7566280607452991,5,-20
