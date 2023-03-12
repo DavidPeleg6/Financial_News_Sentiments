@@ -15,6 +15,8 @@ import boto3
 
 # get the absolute path to the current directory and change the current directory to the current directory
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+# The maximum number of stocks to scrape
+MAX_STOCKS = 500
 
 
 def build_logger(log_name:str):
@@ -138,8 +140,8 @@ sentiment_ticker_list = sentiment_ticker_list.set_index('Date').sort_index(ascen
 
 # get a list of tickers sorted by frequency
 sorted_tickers = sentiment_ticker_list['Stock'].value_counts().index.tolist()
-# remove any stocks that contain crypto or forex and take the first 1000
-sorted_tickers = [t for t in sorted_tickers if 'crypto' not in t.lower() and 'forex' not in t.lower()][:1000]
+# remove any stocks that contain crypto or forex and take the first MAX_STOCKS
+sorted_tickers = [t for t in sorted_tickers if 'crypto' not in t.lower() and 'forex' not in t.lower()][:MAX_STOCKS]
 # print(f'Number of tickers: {len(sorted_tickers)}, tickers: {sorted_tickers}')
 
 get_stockprice_all(sorted_tickers)
