@@ -18,7 +18,7 @@ st.header('Past accuracy (random numbers):')
 
 st.line_chart(data = getPastAccuracy(), x = 'Day', y = ['Daily', 'Weekly', 'Monthly'], use_container_width = True)
 
-chart_data = pd.DataFrame(
+chart_data = pd.DataFrame( # REMOVE THIS LATER, YOU'RE NOT SUPPOSED TO DIRECTLY USE THAT HERE
     np.random.randn(5, 3),
     columns=["random", "xd", "data"])
 st.bar_chart(chart_data)

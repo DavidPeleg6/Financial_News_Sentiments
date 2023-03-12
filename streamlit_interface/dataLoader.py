@@ -1,34 +1,82 @@
 # this version just loads constant data, it's only for use as an example
 
+import streamlit as st
 import pandas as pd
 import numpy as np
+import datetime
+import os
 
-datapth = 'temp_data/'
+_update_interval = datetime.timedelta(days=1)
 
+_recommended_stocks_cache_filename = "recommended_stocks_cache"
+_past_accuracy_cache_filename = "past_accuracy_cache"
+
+_datapth = 'temp_data/'
+_datetime_format = "%Y-%m-%d %H:%M:%S"
 _valid_predgoals = ['Daily', 'Weekly', 'Monthly']
-# gets as input a string detailing prediction targer, must be in the set _valid_predgoals
-# returns a pandas dataframe structured as follows:
-# company name, ticker, model predictions, past accuracy for this stock
-# returns a number if an error occured:
-# 0: input error (predgoal is invalid)
-# 1: model could not generate prediction
-# 2: other error (currently unused)
-def getRecommendedStocks(predgoal = 'Weekly'):
-    if predgoal not in _valid_predgoals:
-        return 0
-    # TODO: check if prediction is cached, and return that if so
+
+def _checkIfCacheUpdate(filename : str) -> datetime.datetime:
+    """
+    checks if more than a day has passed since the time stored in filename
+    if true, update the time in filename and return the current time
+    otherwise, do nothing and return the time stored in filename
+    """
+    now = datetime.datetime.now()
+    if not os.path.exists(filename):
+        with open(filename, "w") as f:
+            f.write(now.strftime(_datetime_format))
+        last = now
+    else:
+        with open(filename, "r") as f:
+            last = datetime.datetime.strptime(f.read().strip(), _datetime_format)
+    # now that you got 'now' and 'last', check their difference
+    difference = now - last
+    if _update_interval.total_seconds() < difference.total_seconds():
+        # elapsed time is greater than _update_interval. Update the cache and time  
+        with open(filename, "w") as f:
+            f.write(now.strftime(_datetime_format))
+        return now
+    # elapsed time is smaller than _update_interval. Keep cache the same
+    return last
+
+def getRecommendedStocks(predgoal : str = 'Weekly') -> pd.DataFrame:
+    """
+    gets as input a string detailing prediction targer, must be in the set _valid_predgoals
+    returns a pandas dataframe structured as follows:
+    company name, ticker, model predictions, past accuracy for this stock
     
+    if less than a day has passed since the last call to this function, the cached result will be used
+    """
+    if predgoal not in _valid_predgoals:
+        return None
+    time = _checkIfCacheUpdate(_recommended_stocks_cache_filename + "_" + predgoal)
+    return _RecommendedStocksCache(predgoal, time)
+
+
+@st.cache_data
+def _RecommendedStocksCache(predgoal : str, time : datetime.datetime) -> pd.DataFrame:
     # TODO: actually aquire data from the model, right now it just returns this constant thing
     # (I took this from https://www.nasdaq.com/, it's just the top 5 I sawthere)
     # this if statement should actually do different stuff based on predgoal
     if predgoal == _valid_predgoals[0]:
-        return pd.read_csv(datapth + 'daily_recommendations.csv')
+        return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), _datapth, 'daily_recommendations.csv'))
     if predgoal == _valid_predgoals[1]:
-        return pd.read_csv(datapth + 'weekly_recommendations.csv')
-    return pd.read_csv(datapth + 'monthly_recommendations.csv')
+        return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), _datapth, 'weekly_recommendations.csv'))
+    return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), _datapth, 'monthly_recommendations.csv'))
 
-# returns a pandas dataframe listing the accuracy of the model in the past for each type of prediction
-# the input is how many days back from right now you want it to show
-def getPastAccuracy(time_back = 100):
+
+def getPastAccuracy(time_back: int = 100) -> pd.DataFrame:
+    """
+    returns a pandas dataframe listing the accuracy of the model in the past for each type of prediction
+    the input is how many days back from right now you want it to show
+    
+    if less than a day has passed since the last call to this function, the cached result will be used
+    """
+    time = _checkIfCacheUpdate(_past_accuracy_cache_filename)
+    # TODO: when this thing actually returns a real value, use 'time_back' to truncate it
+    return _PastAccuracyCache(time)
+
+@st.cache_data
+def _PastAccuracyCache(time : datetime.datetime) -> pd.DataFrame:
     # TODO: actually do this, right now it just returns a randomly generated list
-    return pd.read_csv(datapth + 'past_accuracy.csv')
+    return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), _datapth, 'past_accuracy.csv'))
