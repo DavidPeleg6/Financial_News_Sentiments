@@ -23,6 +23,6 @@ chart_data = pd.DataFrame( # REMOVE THIS LATER, YOU'RE NOT SUPPOSED TO DIRECTLY 
     columns=["random", "xd", "data"])
 st.bar_chart(chart_data)
 
-st.write("There's fancier UI design options than just sticking everything in a big column but fuck it, we can expirement with that stuff when we know what we want.")
-
+# st.write("There's fancier UI design options than just sticking everything in a big column but fuck it, we can expirement with that stuff when we know what we want.")
+print('hi')
 st.button('Reload page')
