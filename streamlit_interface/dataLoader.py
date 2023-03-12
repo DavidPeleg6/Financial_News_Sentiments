@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import datetime
 import os
+import boto3
+
 
 _update_interval = datetime.timedelta(days=1)
 
@@ -39,6 +41,7 @@ def _checkIfCacheUpdate(filename : str) -> datetime.datetime:
     # elapsed time is smaller than _update_interval. Keep cache the same
     return last
 
+
 def getRecommendedStocks(predgoal : str = 'Weekly') -> pd.DataFrame:
     """
     gets as input a string detailing prediction targer, must be in the set _valid_predgoals
@@ -51,6 +54,30 @@ def getRecommendedStocks(predgoal : str = 'Weekly') -> pd.DataFrame:
         return None
     time = _checkIfCacheUpdate(_recommended_stocks_cache_filename + "_" + predgoal)
     return _RecommendedStocksCache(predgoal, time)
+
+
+def getSentimentData() -> pd.DataFrame:
+    """
+    returns a pandas dataframe structured as follows:
+    company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
+    """
+    # specify key and secret key
+    aws_access_key_id = os.environ['DB_ACCESS_KEY']
+    aws_secret_access_key = os.environ['DB_SECRET_KEY']
+    # # create a boto3 client
+    # dynamodb = boto3.client('dynamodb', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name='us-east-2')
+    # # get a list of all items in the Stock column sorted by frequency
+    # sentiment_ticker_list = pd.DataFrame(dynamodb.scan(TableName='StockSentiment')['Items'])
+    
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+    table = dynamodb.Table('StockSentiment')
+    # get a list of all items in the Stock column sorted by frequency
+    sentiment_ticker_list = pd.DataFrame(table.scan()['Items'])
+    # convert Date column to datetime
+    sentiment_ticker_list['Date'] = pd.to_datetime(sentiment_ticker_list['Date'])
+    # make the index the Date column
+    sentiment_ticker_list = sentiment_ticker_list.set_index('Date').sort_index(ascending=False)
+    return sentiment_ticker_list
 
 
 @st.cache_data
