@@ -16,7 +16,10 @@ import boto3
 # get the absolute path to the current directory and change the current directory to the current directory
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # The maximum number of stocks to scrape
-MAX_STOCKS = 500
+MAX_STOCKS = 1000
+# the number of days to look back
+TIME_BACK = 3
+# TIME_BACK = 365*2
 
 
 def build_logger(log_name:str):
@@ -82,7 +85,7 @@ def add_indicators(price_df) -> pd.DataFrame:
     price_df['52_week_low'] = price_df['adj_close'].rolling(52*7).min()
     # take only the data up to 2 years ago and convert to numeric
     # price_df = price_df[price_df.index > datetime.now() - timedelta(days=365*2)].apply(pd.to_numeric).dropna().sort_index(ascending=False)
-    price_df = price_df[price_df.index > datetime.now() - timedelta(days=365*2)].dropna().sort_index(ascending=False)
+    price_df = price_df[price_df.index > datetime.now() - timedelta(days=TIME_BACK)].dropna().sort_index(ascending=False)
     return price_df
 
 
@@ -165,6 +168,10 @@ for stock, daily_prices in tqdm(prices.items(), desc='Converting to dataframes')
     stock_dfs.append(convert_dict_to_df(stock, daily_prices))
 # concatenate all the dataframes into one
 stocks_df = pd.concat(stock_dfs)
+# get the current date
+today = datetime.now().strftime('%Y-%m-%d')
+# get only the data of the last day
+stocks_df = stocks_df[stocks_df.index == today]
 
 # use boto3 to write the dataframe to dynamodb
 dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
