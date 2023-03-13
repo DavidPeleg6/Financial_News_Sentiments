@@ -8,14 +8,21 @@ from dataLoader import getRecommendedStocks, getPastAccuracy, getSentimentData, 
 st.title('Financial Stock Recommendation System')
 
 st.header('Sentiment Analysis of News Articles')
-option = st.selectbox(
-    label = 'Top 10 Most Buzzing Stocks',
+st.write('Most Buzzing Stocks')
+timeframe = st.selectbox(
+    label = 'Time Frame',
     options = time_step_options,
     index = 1)
+number_of_stocks = st.slider(
+    label = 'Number of Stocks',
+    min_value = 5,
+    max_value = 50,
+    value = 20,
+    step = 1)
 
-sentiment_data = getSentimentData(time_step=option)
+sentiment_data = getSentimentData(time_step=timeframe)
 # create a histogram where the x axis is the stock name and the y axis is the frequency, make the chart sorted by frequency
-st.bar_chart(data = sentiment_data['Stock'].value_counts().sort_values(ascending=False), use_container_width = True)
+st.bar_chart(data = sentiment_data['Stock'].value_counts().sort_values(ascending=False).head(number_of_stocks), use_container_width = True)
 
 # st.dataframe(data = getRecommendedStocks(predgoal = option))
 
