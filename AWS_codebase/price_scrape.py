@@ -133,8 +133,14 @@ logger = build_logger('price_scrape')
 # define a boto resource in the ohio region
 dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
 table = dynamodb.Table('StockSentiment')
-# get a list of all items in the Stock column sorted by frequency
-sentiment_ticker_list = pd.DataFrame(table.scan()['Items'])
+# keep scanning until we have all the data in the table
+response = table.scan()
+data = response['Items']
+while 'LastEvaluatedKey' in response:
+    response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+    data.extend(response['Items'])
+# convert the data to a pandas dataframe
+sentiment_ticker_list = pd.DataFrame(data)
 # convert Date column to datetime
 sentiment_ticker_list['Date'] = pd.to_datetime(sentiment_ticker_list['Date'])
 # make the index the Date column
