@@ -21,6 +21,8 @@ _past_stock_prices_cache_filename = "past_stock_prices_cache"
 _datapth = 'temp_data/'
 _datetime_format = "%Y-%m-%d %H:%M:%S"
 time_step_options = ('Daily', 'Weekly', 'Monthly')
+time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30}
+
 
 def cache_dec(filename: str):
     # this decorator MUST be used alongside @st.cache_data. this one should come first
@@ -98,6 +100,8 @@ def getSentimentData(time : datetime.datetime = None, time_step = 'Daily') -> pd
     sentiment_ticker_list['Date'] = pd.to_datetime(sentiment_ticker_list['Date'])
     # make the index the Date column
     sentiment_ticker_list = sentiment_ticker_list.set_index('Date').sort_index(ascending=False)
+    # get only the data for the last 30 days
+    sentiment_ticker_list = sentiment_ticker_list.loc[sentiment_ticker_list.index >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[time_step]))]
     return sentiment_ticker_list
 
 
