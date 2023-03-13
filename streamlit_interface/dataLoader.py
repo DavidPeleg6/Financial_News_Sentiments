@@ -66,8 +66,7 @@ def _checkIfCacheUpdate(filename : str) -> datetime.datetime:
 @st.cache_data
 def getSentimentData(time : datetime.datetime = None) -> pd.DataFrame:
     """
-    returns a pandas dataframe structured as follows:
-    company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
+    TODO: write documentation here
     """
     if _OFFLINE_DATA:
         return pd.read_csv("news_sentiments.csv", index_col="Date")
