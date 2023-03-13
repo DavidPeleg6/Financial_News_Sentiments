@@ -19,7 +19,7 @@ number_of_stocks = st.slider(
     min_value = 5,
     max_value = 40,
     value = 20,
-    step = 1, label_visibility='collapsed')
+    step = 1, label_visibility='hidden')
 # add another slider but hide min max values
 
 sentiment_data = getSentimentData(time_step=timeframe)
