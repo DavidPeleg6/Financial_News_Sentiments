@@ -13,12 +13,14 @@ timeframe = st.selectbox(
     label = 'Time Frame',
     options = time_step_options,
     index = 1)
+
 number_of_stocks = st.slider(
     label = 'Number of Stocks',
     min_value = 5,
     max_value = 40,
     value = 20,
-    step = 1)
+    step = 1, label_visibility='collapsed')
+# add another slider but hide min max values
 
 sentiment_data = getSentimentData(time_step=timeframe)
 # create a histogram where the x axis is the stock name and the y axis is the frequency, make the chart sorted by frequency
