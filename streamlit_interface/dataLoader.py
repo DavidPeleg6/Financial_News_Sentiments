@@ -20,7 +20,7 @@ _past_stock_prices_cache_filename = "past_stock_prices_cache"
 
 _datapth = 'temp_data/'
 _datetime_format = "%Y-%m-%d %H:%M:%S"
-_valid_predgoals = ['Daily', 'Weekly', 'Monthly']
+time_step_options = ('Daily', 'Weekly', 'Monthly')
 
 def cache_dec(filename: str):
     # this decorator MUST be used alongside @st.cache_data. this one should come first
@@ -37,6 +37,7 @@ def cache_dec(filename: str):
             return result
         return wrapper
     return decorator
+
 
 def _checkIfCacheUpdate(filename : str) -> datetime.datetime:
     """
@@ -62,11 +63,16 @@ def _checkIfCacheUpdate(filename : str) -> datetime.datetime:
     # elapsed time is smaller than _update_interval. Keep cache the same
     return last
 
+
 @cache_dec(_sentiment_data_cache_filename)
 @st.cache_data
-def getSentimentData(time : datetime.datetime = None) -> pd.DataFrame:
+def getSentimentData(time : datetime.datetime = None, time_step = 'Daily') -> pd.DataFrame:
     """
-    TODO: write documentation here
+    returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
+    the dataframe has the following columns:
+    Date, ticker_sentiment_score, ticker_sentiment_label, Stock, source, url, relevance_score
+    :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
+    :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
     """
     if _OFFLINE_DATA:
         return pd.read_csv("news_sentiments.csv", index_col="Date")
@@ -93,6 +99,7 @@ def getSentimentData(time : datetime.datetime = None) -> pd.DataFrame:
     # make the index the Date column
     sentiment_ticker_list = sentiment_ticker_list.set_index('Date').sort_index(ascending=False)
     return sentiment_ticker_list
+
 
 @cache_dec(_past_stock_prices_cache_filename)
 @st.cache_data
@@ -121,26 +128,28 @@ def getPastStockPrices(time : datetime.datetime = None) -> pd.DataFrame:
     stock_prices = stock_prices.set_index('Date').sort_index(ascending=False)
     return stock_prices
 
+
 @cache_dec(_recommended_stocks_cache_filename)
 @st.cache_data
 def getRecommendedStocks(predgoal : str = 'Weekly', time : datetime.datetime = None) -> pd.DataFrame:
     """
-    gets as input a string detailing prediction targer, must be in the set _valid_predgoals
+    gets as input a string detailing prediction targer, must be in the set time_step_options
     returns a pandas dataframe structured as follows:
     company name, ticker, model predictions, past accuracy for this stock
     
     if less than a day has passed since the last call to this function, the cached result will be used
     """
-    if predgoal not in _valid_predgoals:
+    if predgoal not in time_step_options:
         return None
     # TODO: actually aquire data from the model, right now it just returns this constant thing
     # (I took this from https://www.nasdaq.com/, it's just the top 5 I sawthere)
     # this if statement should actually do different stuff based on predgoal
-    if predgoal == _valid_predgoals[0]:
+    if predgoal == time_step_options[0]:
         return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), _datapth, 'daily_recommendations.csv'))
-    if predgoal == _valid_predgoals[1]:
+    if predgoal == time_step_options[1]:
         return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), _datapth, 'weekly_recommendations.csv'))
     return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), _datapth, 'monthly_recommendations.csv'))
+
 
 @cache_dec(_past_accuracy_cache_filename)
 @st.cache_data
