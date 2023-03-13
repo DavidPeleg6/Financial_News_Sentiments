@@ -9,15 +9,13 @@ st.title('Financial Stock Recommendation System')
 
 st.header('Sentiment Analysis of News Articles')
 option = st.selectbox(
-    label = 'Most Buzzing Stocks',
+    label = 'Top 10 Most Buzzing Stocks',
     options = time_step_options,
     index = 1)
 
 sentiment_data = getSentimentData(time_step=option)
-# get the top 10 most frequent stocks
-top_stocks = sentiment_data['Stock'].value_counts().head(10).index
-st.bar_chart(data = top_stocks, use_container_width = True)
-
+# create a histogram where the x axis is the stock name and the y axis is the frequency, take only the 10 most frequent stocks
+st.bar_chart(data = sentiment_data['Stock'].value_counts().head(10), use_container_width = True)
 
 # st.dataframe(data = getRecommendedStocks(predgoal = option))
 
