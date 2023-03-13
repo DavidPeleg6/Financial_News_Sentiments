@@ -9,7 +9,7 @@ import boto3
 
 # This is the "don't waste money" variable, it makes the code load local data instead of accessing AWS
 # Set this to false to waste money (and also test the actual thing)
-_OFFLINE_DATA = False
+_OFFLINE_DATA = True
 
 _update_interval = datetime.timedelta(days=1)
 
@@ -29,8 +29,8 @@ def cache_dec(filename: str):
     # the function which is decorated should have a 'time' variable, preferabbly with a default value of 'None'.
     def decorator(func):
         def wrapper(*args, **kwargs):
-            if "time" not in kwargs:
-                print(f"Invalid use of the cache_dec decorator. {func} must have a time variable")
+            # if "time" not in kwargs:
+            #     raise Exception(f"Invalid use of the cache_dec decorator. {func} must have a time variable")
             cachedata_fname = filename
             if "predgoal" in kwargs:
                 cachedata_fname = cachedata_fname + "_" + kwargs["predgoal"]
@@ -68,7 +68,7 @@ def _checkIfCacheUpdate(filename : str) -> datetime.datetime:
 
 @cache_dec(_sentiment_data_cache_filename)
 @st.cache_data
-def getSentimentData(time : datetime.datetime = None, time_step = 'Daily') -> pd.DataFrame:
+def getSentimentData(time : datetime.datetime = None, time_step=time_step_options[1]) -> pd.DataFrame:
     """
     returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
     the dataframe has the following columns:
@@ -77,7 +77,11 @@ def getSentimentData(time : datetime.datetime = None, time_step = 'Daily') -> pd
     :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
     """
     if _OFFLINE_DATA:
-        return pd.read_csv("news_sentiments.csv", index_col="Date")
+        sentiment_data = pd.read_csv("temp_data/news_sentiments.csv", index_col="Date")
+        sentiment_data.index = pd.to_datetime(sentiment_data.index)
+        sentiment_data = sentiment_data.loc[sentiment_data.index >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[time_step]))]
+        return sentiment_data
+    
     # specify key and secret key
     aws_access_key_id = os.environ['DB_ACCESS_KEY']
     aws_secret_access_key = os.environ['DB_SECRET_KEY']
@@ -113,19 +117,24 @@ def getPastStockPrices(time : datetime.datetime = None) -> pd.DataFrame:
     company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
     """
     if _OFFLINE_DATA:
-        return pd.read_csv("news_sentiments.csv", index_col="Date")
+        return pd.read_csv("temp_data/stock_df.csv", index_col="Date")
     # specify key and secret key
     aws_access_key_id = os.environ['DB_ACCESS_KEY']
     aws_secret_access_key = os.environ['DB_SECRET_KEY']
-    # # create a boto3 client
-    # dynamodb = boto3.client('dynamodb', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name='us-east-2')
-    # # get a list of all items in the Stock column sorted by frequency
-    # stock_prices = pd.DataFrame(dynamodb.scan(TableName='StockPrices')['Items'])
-    
+    # # create a boto3 client and import all stock prices from it
     dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
     table = dynamodb.Table('StockPrices')
-    # get a list of all items in the Stock column sorted by frequency
-    stock_prices = pd.DataFrame(table.scan()['Items'])
+    # keep scanning until we have all the data in the table
+    response = table.scan()
+    data = response['Items']
+    # create a progress bar to show the user that the data is being loaded
+    while 'LastEvaluatedKey' in response:
+        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+        data.extend(response['Items'])
+        # show the number of items loaded so far
+        st.write(len(data))
+    # convert the data to a pandas dataframe
+    stock_prices = pd.DataFrame(data)
     # convert Date column to datetime
     stock_prices['Date'] = pd.to_datetime(stock_prices['Date'])
     # make the index the Date column
