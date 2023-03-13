@@ -14,8 +14,8 @@ option = st.selectbox(
     index = 1)
 
 sentiment_data = getSentimentData(time_step=option)
-# create a histogram where the x axis is the stock name and the y axis is the frequency, take only the 10 most frequent stocks
-st.bar_chart(data = sentiment_data['Stock'].value_counts().head(10), use_container_width = True)
+# create a histogram where the x axis is the stock name and the y axis is the frequency, make the chart sorted by frequency
+st.bar_chart(data = sentiment_data['Stock'].value_counts().sort_values(ascending=False), use_container_width = True)
 
 # st.dataframe(data = getRecommendedStocks(predgoal = option))
 
