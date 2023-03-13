@@ -24,11 +24,13 @@ number_of_stocks = st.slider(
 
 sentiment_data = getSentimentData(time_step=timeframe)
 top_stocks = sentiment_data['Stock'].value_counts().head(number_of_stocks)
-st.dataframe(data=top_stocks)
+# st.dataframe(data=top_stocks)
+# get a subset of the sentiment data that only contains the top stocks and take the mean of the sentiment score for each stock
+top_sentiment_data = sentiment_data[sentiment_data['Stock'].isin(top_stocks.index)].groupby('Stock')['ticker_sentiment_score'].mean()
 # create a histogram where the x axis is the stock name and the y axis is the frequency, make the chart sorted by frequency
 st.bar_chart(data = top_stocks, use_container_width = True)
 # on the same bar chart, add a line chart that shows the sentiment score for each stock
-st.line_chart(data = sentiment_data.groupby('Stock')['ticker_sentiment_score'].mean().head(number_of_stocks), use_container_width = True)
+st.bar_chart(data = top_sentiment_data, use_container_width = True)
 
 # st.dataframe(data = getRecommendedStocks(predgoal = option))
 
