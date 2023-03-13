@@ -22,7 +22,9 @@ number_of_stocks = st.slider(
 
 sentiment_data = getSentimentData(time_step=timeframe)
 # create a histogram where the x axis is the stock name and the y axis is the frequency, make the chart sorted by frequency
-st.bar_chart(data = sentiment_data['Stock'].value_counts().head(number_of_stocks), use_container_width = True, sorted = True)
+st.bar_chart(data = sentiment_data['Stock'].value_counts().head(number_of_stocks), use_container_width = True)
+# make streamlit bar chart sort by frequency
+# https://discuss.streamlit.io/t/sort-bar-chart-by-value/1001/2
 
 # st.dataframe(data = getRecommendedStocks(predgoal = option))
 
