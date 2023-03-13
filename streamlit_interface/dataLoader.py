@@ -16,6 +16,7 @@ _update_interval = datetime.timedelta(days=1)
 _recommended_stocks_cache_filename = "recommended_stocks_cache"
 _past_accuracy_cache_filename = "past_accuracy_cache"
 _sentiment_data_cache_filename = "sentiment_data_cache"
+_past_stock_prices_cache_filename = "past_stock_prices_cache"
 
 _datapth = 'temp_data/'
 _datetime_format = "%Y-%m-%d %H:%M:%S"
@@ -87,6 +88,33 @@ def getSentimentData(time : datetime.datetime = None) -> pd.DataFrame:
     # make the index the Date column
     sentiment_ticker_list = sentiment_ticker_list.set_index('Date').sort_index(ascending=False)
     return sentiment_ticker_list
+
+@cache_dec(_past_stock_prices_cache_filename)
+@st.cache_data
+def getPastStockPrices(time : datetime.datetime = None) -> pd.DataFrame:
+    """
+    returns a pandas dataframe structured as follows:
+    company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
+    """
+    if _OFFLINE_DATA:
+        return pd.read_csv("news_sentiments.csv", index_col="Date")
+    # specify key and secret key
+    aws_access_key_id = os.environ['DB_ACCESS_KEY']
+    aws_secret_access_key = os.environ['DB_SECRET_KEY']
+    # # create a boto3 client
+    # dynamodb = boto3.client('dynamodb', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name='us-east-2')
+    # # get a list of all items in the Stock column sorted by frequency
+    # stock_prices = pd.DataFrame(dynamodb.scan(TableName='StockPrices')['Items'])
+    
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+    table = dynamodb.Table('StockPrices')
+    # get a list of all items in the Stock column sorted by frequency
+    stock_prices = pd.DataFrame(table.scan()['Items'])
+    # convert Date column to datetime
+    stock_prices['Date'] = pd.to_datetime(stock_prices['Date'])
+    # make the index the Date column
+    stock_prices = stock_prices.set_index('Date').sort_index(ascending=False)
+    return stock_prices
 
 @cache_dec(_recommended_stocks_cache_filename)
 @st.cache_data
