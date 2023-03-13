@@ -18,7 +18,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # The maximum number of stocks to scrape
 MAX_STOCKS = 1000
 # the number of days to look back
-TIME_BACK = 3
+TIME_BACK = 7
 # TIME_BACK = 365*2
 
 
@@ -168,10 +168,6 @@ for stock, daily_prices in tqdm(prices.items(), desc='Converting to dataframes')
     stock_dfs.append(convert_dict_to_df(stock, daily_prices))
 # concatenate all the dataframes into one
 stocks_df = pd.concat(stock_dfs)
-# get the current date
-today = datetime.now().strftime('%Y-%m-%d')
-# get only the data of the last day
-stocks_df = stocks_df[stocks_df.index == today]
 
 # use boto3 to write the dataframe to dynamodb
 dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
