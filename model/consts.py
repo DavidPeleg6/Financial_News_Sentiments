@@ -3,8 +3,10 @@ Constants used throughout the other files.
 """
 
 # aws keys
-aws_access_key_id = 'AKIATMSMR3RSAVNMG6PT'
-aws_secret_access_key = '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'
+aws_key_filename = 'aws_keys.txt'
+with open(aws_key_filename, 'r') as f:
+    aws_access_key_id = f.readline()
+    aws_secret_access_key = f.readline()
 
 # online data sources
 price_data_source = "https://www.alphavantage.co/query"
