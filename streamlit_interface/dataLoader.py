@@ -9,7 +9,7 @@ import boto3
 
 # This is the "don't waste money" variable, it makes the code load local data instead of accessing AWS
 # Set this to false to waste money (and also test the actual thing)
-_OFFLINE_DATA = True
+_OFFLINE_DATA = False
 
 _update_interval = datetime.timedelta(days=1)
 

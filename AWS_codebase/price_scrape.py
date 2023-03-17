@@ -14,11 +14,11 @@ import logging
 import boto3
 
 # get the absolute path to the current directory and change the current directory to the current directory
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+# os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # The maximum number of stocks to scrape
 MAX_STOCKS = 1000
 # the number of days to look back
-TIME_BACK = 3
+TIME_BACK = 5
 # TIME_BACK = 365*2
 
 
@@ -85,7 +85,7 @@ def add_indicators(price_df) -> pd.DataFrame:
     price_df['52_week_low'] = price_df['adj_close'].rolling(52*7).min()
     # take only the data up to 2 years ago and convert to numeric
     # price_df = price_df[price_df.index > datetime.now() - timedelta(days=365*2)].apply(pd.to_numeric).dropna().sort_index(ascending=False)
-    price_df = price_df[price_df.index > datetime.now() - timedelta(days=TIME_BACK)].dropna().sort_index(ascending=False)
+    price_df = price_df[price_df.index >= datetime.now() - timedelta(days=TIME_BACK)].dropna().sort_index(ascending=False)
     return price_df
 
 
@@ -129,13 +129,18 @@ def get_stockprice_all(stocks_to_watch: list):
         with open(f'prices/{ticker}.json', 'w') as outfile:
             json.dump(data, outfile, indent=4)
 
-
 logger = build_logger('price_scrape')
 # define a boto resource in the ohio region
 dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
 table = dynamodb.Table('StockSentiment')
-# get a list of all items in the Stock column sorted by frequency
-sentiment_ticker_list = pd.DataFrame(table.scan()['Items'])
+# keep scanning until we have all the data in the table
+response = table.scan()
+data = response['Items']
+while 'LastEvaluatedKey' in response:
+    response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+    data.extend(response['Items'])
+# convert the data to a pandas dataframe
+sentiment_ticker_list = pd.DataFrame(data)
 # convert Date column to datetime
 sentiment_ticker_list['Date'] = pd.to_datetime(sentiment_ticker_list['Date'])
 # make the index the Date column
@@ -168,10 +173,7 @@ for stock, daily_prices in tqdm(prices.items(), desc='Converting to dataframes')
     stock_dfs.append(convert_dict_to_df(stock, daily_prices))
 # concatenate all the dataframes into one
 stocks_df = pd.concat(stock_dfs)
-# get the current date
-today = datetime.now().strftime('%Y-%m-%d')
-# get only the data of the last day
-stocks_df = stocks_df[stocks_df.index == today]
+
 
 # use boto3 to write the dataframe to dynamodb
 dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
@@ -190,7 +192,8 @@ with table.batch_writer() as batch:
         # write the data to dynamodb
         batch.put_item(Item=row_dict)
 
-
 # delete all price files once youre done moving it to the cloud
 for file in os.listdir('prices'):
     os.remove(os.path.join('prices', file))
+
+
