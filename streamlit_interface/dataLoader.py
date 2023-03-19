@@ -108,37 +108,37 @@ def _checkIfCacheUpdate(filename : str) -> datetime.datetime:
 #     return sentiment_ticker_list
 
 
-@cache_dec(_past_stock_prices_cache_filename)
-@st.cache_data
-def getPastStockPrices(time : datetime.datetime = None) -> pd.DataFrame:
-    """
-    returns a pandas dataframe structured as follows:
-    company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
-    """
-    if _OFFLINE_DATA:
-        return pd.read_csv("temp_data/stock_df.csv", index_col="Date")
-    # specify key and secret key
-    aws_access_key_id = os.environ['DB_ACCESS_KEY']
-    aws_secret_access_key = os.environ['DB_SECRET_KEY']
-    # # create a boto3 client and import all stock prices from it
-    dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-    table = dynamodb.Table('StockPrices')
-    # keep scanning until we have all the data in the table
-    response = table.scan()
-    data = response['Items']
-    # create a progress bar to show the user that the data is being loaded
-    while 'LastEvaluatedKey' in response:
-        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
-        data.extend(response['Items'])
-        # show the number of items loaded so far
-        st.write(len(data))
-    # convert the data to a pandas dataframe
-    stock_prices = pd.DataFrame(data)
-    # convert Date column to datetime
-    stock_prices['Date'] = pd.to_datetime(stock_prices['Date'])
-    # make the index the Date column
-    stock_prices = stock_prices.set_index('Date').sort_index(ascending=False)
-    return stock_prices
+# @cache_dec(_past_stock_prices_cache_filename)
+# @st.cache_data
+# def getPastStockPrices(time : datetime.datetime = None) -> pd.DataFrame:
+#     """
+#     returns a pandas dataframe structured as follows:
+#     company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
+#     """
+#     if _OFFLINE_DATA:
+#         return pd.read_csv("temp_data/stock_df.csv", index_col="Date")
+#     # specify key and secret key
+#     aws_access_key_id = os.environ['DB_ACCESS_KEY']
+#     aws_secret_access_key = os.environ['DB_SECRET_KEY']
+#     # # create a boto3 client and import all stock prices from it
+#     dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+#     table = dynamodb.Table('StockPrices')
+#     # keep scanning until we have all the data in the table
+#     response = table.scan()
+#     data = response['Items']
+#     # create a progress bar to show the user that the data is being loaded
+#     while 'LastEvaluatedKey' in response:
+#         response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+#         data.extend(response['Items'])
+#         # show the number of items loaded so far
+#         st.write(len(data))
+#     # convert the data to a pandas dataframe
+#     stock_prices = pd.DataFrame(data)
+#     # convert Date column to datetime
+#     stock_prices['Date'] = pd.to_datetime(stock_prices['Date'])
+#     # make the index the Date column
+#     stock_prices = stock_prices.set_index('Date').sort_index(ascending=False)
+#     return stock_prices
 
 
 @cache_dec(_recommended_stocks_cache_filename)
