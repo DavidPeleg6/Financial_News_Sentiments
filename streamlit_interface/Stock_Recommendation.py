@@ -16,8 +16,9 @@ try:
     # set the environment variable
     os.environ['DB_ACCESS_KEY'] = DB_ACCESS_KEY['Access key ID'][0]
     os.environ['DB_SECRET_KEY'] = DB_ACCESS_KEY['Secret access key'][0]
+    st.session_state.OFFLINE = True
 except FileNotFoundError:
-    pass
+    st.session_state.OFFLINE = False
 
 st.title('Financial Stock Recommendation System')
 

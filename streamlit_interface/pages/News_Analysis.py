@@ -6,7 +6,7 @@ import os
 import boto3
 
 
-_OFFLINE_DATA = True
+_OFFLINE_DATA = False
 time_step_options = ('Daily', 'Weekly', 'Monthly')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30}
 refresh_counter = 0
@@ -23,7 +23,7 @@ def getSentimentData(refreshes, time_step) -> pd.DataFrame:
     :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
     :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
     """
-    if _OFFLINE_DATA:
+    if st.session_state.OFFLINE:
         sentiment_data = pd.read_csv("temp_data/sentiment_data.csv", index_col="Date")
         sentiment_data.index = pd.to_datetime(sentiment_data.index)
         return sentiment_data
