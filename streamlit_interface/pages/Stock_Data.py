@@ -78,7 +78,7 @@ if not stock_data.empty:
     # create a dataframe out of the first row of the stock data
     st.dataframe(stock_data.iloc[0])
     # create checkboxes for each column in the stock data, with default being close
-    checkboxes = st.multiselect('Select columns to plot', stock_data.columns, default=['close'])
+    checkboxes = st.multiselect('Select indicators to plot', stock_data.columns, default=['close'])
     # create a plotly blank figure
     fig = px.line()
     for column in checkboxes:
