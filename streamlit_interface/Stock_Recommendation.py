@@ -5,10 +5,14 @@ import os
 
 # from news_sentiment_page import display_page
 from dataLoader import getPastStockPrices, time_step_options
+# global _OFFLINE_DATA
+# _OFFLINE_DATA = False
 
 # try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
 try:
     DB_ACCESS_KEY = pd.read_csv('DB_ACCESS_KEY.csv')
+    # TODO ADD the flag update of offline here
+    # _OFFLINE_DATA = True
     # set the environment variable
     os.environ['DB_ACCESS_KEY'] = DB_ACCESS_KEY['Access key ID'][0]
     os.environ['DB_SECRET_KEY'] = DB_ACCESS_KEY['Secret access key'][0]
@@ -16,6 +20,7 @@ except FileNotFoundError:
     pass
 
 st.title('Financial Stock Recommendation System')
+
 # st.dataframe(getPastStockPrices())
 # st.dataframe(data = getRecommendedStocks(predgoal = option))
 

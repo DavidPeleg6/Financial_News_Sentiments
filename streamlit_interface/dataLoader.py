@@ -66,47 +66,46 @@ def _checkIfCacheUpdate(filename : str) -> datetime.datetime:
     return last
 
 
-@cache_dec(_sentiment_data_cache_filename)
-@st.cache_data
-def getSentimentData(time : datetime.datetime = None, time_step=time_step_options[1]) -> pd.DataFrame:
-    """
-    returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
-    the dataframe has the following columns:
-    Date, ticker_sentiment_score, ticker_sentiment_label, Stock, source, url, relevance_score
-    :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
-    :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
-    """
-    if _OFFLINE_DATA:
-        sentiment_data = pd.read_csv("temp_data/news_sentiments.csv", index_col="Date")
-        sentiment_data.index = pd.to_datetime(sentiment_data.index)
-        sentiment_data = sentiment_data.loc[sentiment_data.index >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[time_step]))]
-        return sentiment_data
+# @st.cache_data(ttl=60*60*24)
+# def getSentimentData(time: datetime.datetime = None, time_step=time_step_options[1]) -> pd.DataFrame:
+#     """
+#     returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
+#     the dataframe has the following columns:
+#     Date, ticker_sentiment_score, ticker_sentiment_label, Stock, source, url, relevance_score
+#     :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
+#     :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
+#     """
+#     if _OFFLINE_DATA:
+#         sentiment_data = pd.read_csv("temp_data/news_sentiments.csv", index_col="Date")
+#         sentiment_data.index = pd.to_datetime(sentiment_data.index)
+#         sentiment_data = sentiment_data.loc[sentiment_data.index >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[time_step]))]
+#         return sentiment_data
     
-    # specify key and secret key
-    aws_access_key_id = os.environ['DB_ACCESS_KEY']
-    aws_secret_access_key = os.environ['DB_SECRET_KEY']
-    # # create a boto3 client
-    # dynamodb = boto3.client('dynamodb', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name='us-east-2')
-    # # get a list of all items in the Stock column sorted by frequency
-    # sentiment_ticker_list = pd.DataFrame(dynamodb.scan(TableName='StockSentiment')['Items'])
+#     # specify key and secret key
+#     aws_access_key_id = os.environ['DB_ACCESS_KEY']
+#     aws_secret_access_key = os.environ['DB_SECRET_KEY']
+#     # # create a boto3 client
+#     # dynamodb = boto3.client('dynamodb', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name='us-east-2')
+#     # # get a list of all items in the Stock column sorted by frequency
+#     # sentiment_ticker_list = pd.DataFrame(dynamodb.scan(TableName='StockSentiment')['Items'])
     
-    dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-    table = dynamodb.Table('StockSentiment')
-    # keep scanning until we have all the data in the table
-    response = table.scan()
-    data = response['Items']
-    while 'LastEvaluatedKey' in response:
-        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
-        data.extend(response['Items'])
-    # convert the data to a pandas dataframe
-    sentiment_ticker_list = pd.DataFrame(data)
-    # convert Date column to datetime
-    sentiment_ticker_list['Date'] = pd.to_datetime(sentiment_ticker_list['Date'])
-    # make the index the Date column
-    sentiment_ticker_list = sentiment_ticker_list.set_index('Date').sort_index(ascending=False)
-    # get only the data for the last 30 days
-    sentiment_ticker_list = sentiment_ticker_list.loc[sentiment_ticker_list.index >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[time_step]))]
-    return sentiment_ticker_list
+#     dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+#     table = dynamodb.Table('StockSentiment')
+#     # keep scanning until we have all the data in the table
+#     response = table.scan()
+#     data = response['Items']
+#     while 'LastEvaluatedKey' in response:
+#         response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+#         data.extend(response['Items'])
+#     # convert the data to a pandas dataframe
+#     sentiment_ticker_list = pd.DataFrame(data)
+#     # convert Date column to datetime
+#     sentiment_ticker_list['Date'] = pd.to_datetime(sentiment_ticker_list['Date'])
+#     # make the index the Date column
+#     sentiment_ticker_list = sentiment_ticker_list.set_index('Date').sort_index(ascending=False)
+#     # get only the data for the last 30 days
+#     sentiment_ticker_list = sentiment_ticker_list.loc[sentiment_ticker_list.index >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[time_step]))]
+#     return sentiment_ticker_list
 
 
 @cache_dec(_past_stock_prices_cache_filename)
