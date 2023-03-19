@@ -80,14 +80,12 @@ number_of_stocks = st.slider(
 # add another slider but hide min max values
 
 sentiment_ticker_list = getSentimentData(refresh_counter, time_step=timeframe)
-# st.write(sentiment_ticker_list.shape)
+# convert data type to float
+sentiment_ticker_list['ticker_sentiment_score'] = pd.to_numeric(sentiment_ticker_list['ticker_sentiment_score'])
 # add download button
 st.download_button('Download sentiment data', sentiment_ticker_list.to_csv(), 'sentiment_data.csv', 'text/csv')
 # get only the data for the last 30 days
 sentiment_data = sentiment_ticker_list.loc[sentiment_ticker_list.index >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[timeframe]))]
-# convert data in the ticker_sentiment_score column to a float
-# sentiment_data.loc['ticker_sentiment_score'] = sentiment_data['ticker_sentiment_score'].astype(float)
-
 top_stocks = sentiment_data['Stock'].value_counts().head(number_of_stocks)
 # create a histogram where the x axis is the stock name and the y axis is the frequency, make the chart sorted by frequency
 st.write('Number of stock mentions')
@@ -95,7 +93,6 @@ st.bar_chart(data = top_stocks, use_container_width = True)
 
 # get a subset of the sentiment data that only contains the most frequently mentioned stocks
 top_sentiment_data = sentiment_data[sentiment_data['Stock'].isin(top_stocks.index)]
-st.dataframe(top_sentiment_data)
 
 # get the mean sentiment score for each stock
 st.write('Average sentiment score')
