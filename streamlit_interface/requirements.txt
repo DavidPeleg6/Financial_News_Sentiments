@@ -1,3 +1,4 @@
 pandas
 numpy
 boto3
+plotly
