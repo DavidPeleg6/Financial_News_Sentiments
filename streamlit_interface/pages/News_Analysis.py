@@ -12,7 +12,9 @@ time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30}
 refresh_counter = 0
 if 'sentiment_refresh' not in st.session_state:
     st.session_state.sentiment_refresh = 0
-
+if 'OFFLINE' not in st.session_state:
+    st.session_state.OFFLINE = False
+    
 
 @st.cache_data(ttl=60*60*24)
 def getSentimentData(refreshes, time_step) -> pd.DataFrame:
