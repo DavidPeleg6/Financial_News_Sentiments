@@ -16,9 +16,9 @@ import boto3
 # get the absolute path to the current directory and change the current directory to the current directory
 # os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # The maximum number of stocks to scrape
-MAX_STOCKS = 1000
+MAX_STOCKS = 500
 # the number of days to look back
-TIME_BACK = 5
+TIME_BACK = 20
 # TIME_BACK = 365*2
 
 
