@@ -24,7 +24,7 @@ except FileNotFoundError:
 
 
 @st.cache_data(ttl=60*60*24)
-def getSentimentData(refreshes, time_step) -> pd.DataFrame:
+def getSentimentData(refreshes) -> pd.DataFrame:
     """
     returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
     the dataframe has the following columns:
@@ -79,7 +79,7 @@ number_of_stocks = st.slider(
     step = 1, label_visibility='hidden')
 # add another slider but hide min max values
 
-sentiment_ticker_list = getSentimentData(refresh_counter, time_step=timeframe)
+sentiment_ticker_list = getSentimentData(refresh_counter)
 # convert data type to float
 sentiment_ticker_list['ticker_sentiment_score'] = pd.to_numeric(sentiment_ticker_list['ticker_sentiment_score'])
 # add download button
