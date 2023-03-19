@@ -101,7 +101,7 @@ st.bar_chart(data = top_sentiment_data.groupby('Stock')['ticker_sentiment_score'
 st.write('Choose custom stock')
 stock_ticker = st.text_input(label = 'INPUT_STOCK', value = 'AAPL', key = None, type = 'default', help = None, on_change = None, args = None, kwargs = None)
 # get the sentiment data for the stock the user chose
-stock_sentiment_data = sentiment_ticker_list[sentiment_ticker_list['Stock'] == stock_ticker]
+stock_sentiment_data = sentiment_ticker_list[sentiment_ticker_list['Stock'] == str.upper(stock_ticker)]
 # drop the hour from the index column
 stock_sentiment_data.index = stock_sentiment_data.index.strftime('%Y-%m-%d')
 # create a table containing the daily mean sentiment score for the stock the user chose
