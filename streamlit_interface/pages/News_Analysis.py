@@ -95,6 +95,8 @@ st.bar_chart(data = top_stocks, use_container_width = True)
 
 # get a subset of the sentiment data that only contains the most frequently mentioned stocks
 top_sentiment_data = sentiment_data[sentiment_data['Stock'].isin(top_stocks.index)]
+st.dataframe(top_sentiment_data)
+
 # get the mean sentiment score for each stock
 st.write('Average sentiment score')
 st.bar_chart(data = top_sentiment_data.groupby('Stock')['ticker_sentiment_score'].mean(), use_container_width = True)
@@ -104,7 +106,6 @@ st.write('Choose custom stock')
 stock_ticker = st.text_input(label = 'INPUT_STOCK', value = 'AAPL', key = None, type = 'default', help = None, on_change = None, args = None, kwargs = None)
 # get the sentiment data for the stock the user chose
 stock_sentiment_data = sentiment_ticker_list[sentiment_ticker_list['Stock'] == stock_ticker]
-st.dataframe(stock_sentiment_data)
 # drop the hour from the index column
 stock_sentiment_data.index = stock_sentiment_data.index.strftime('%Y-%m-%d')
 # create a table containing the daily mean sentiment score for the stock the user chose
