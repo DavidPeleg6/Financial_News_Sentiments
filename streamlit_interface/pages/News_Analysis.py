@@ -12,9 +12,16 @@ time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30}
 refresh_counter = 0
 if 'sentiment_refresh' not in st.session_state:
     st.session_state.sentiment_refresh = 0
-if 'OFFLINE' not in st.session_state:
+
+# try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
+try:
+    DB_ACCESS_KEY = pd.read_csv('DB_ACCESS_KEY.csv')
+    os.environ['DB_ACCESS_KEY'] = DB_ACCESS_KEY['Access key ID'][0]
+    os.environ['DB_SECRET_KEY'] = DB_ACCESS_KEY['Secret access key'][0]
+    st.session_state.OFFLINE = True
+except FileNotFoundError:
     st.session_state.OFFLINE = False
-    
+
 
 @st.cache_data(ttl=60*60*24)
 def getSentimentData(refreshes, time_step) -> pd.DataFrame:
@@ -79,7 +86,7 @@ st.download_button('Download sentiment data', sentiment_ticker_list.to_csv(), 's
 # get only the data for the last 30 days
 sentiment_data = sentiment_ticker_list.loc[sentiment_ticker_list.index >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[timeframe]))]
 # convert data in the ticker_sentiment_score column to a float
-sentiment_data['ticker_sentiment_score'] = sentiment_data['ticker_sentiment_score'].astype(float)
+# sentiment_data.loc['ticker_sentiment_score'] = sentiment_data['ticker_sentiment_score'].astype(float)
 
 top_stocks = sentiment_data['Stock'].value_counts().head(number_of_stocks)
 # create a histogram where the x axis is the stock name and the y axis is the frequency, make the chart sorted by frequency
