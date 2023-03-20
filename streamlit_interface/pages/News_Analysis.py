@@ -78,25 +78,24 @@ number_of_stocks = st.slider(
 sentiment_ticker_list = getSentimentData(st.session_state.sentiment_refresh)
 # convert data type to float
 sentiment_ticker_list['ticker_sentiment_score'] = pd.to_numeric(sentiment_ticker_list['ticker_sentiment_score'])
-# add download button
-st.download_button('Download sentiment data', sentiment_ticker_list.to_csv(), 'sentiment_data.csv', 'text/csv')
+
 # get only the data for the last 30 days
 sentiment_data = sentiment_ticker_list.loc[sentiment_ticker_list.index >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[timeframe]))]
 top_stocks = sentiment_data['Stock'].value_counts().head(number_of_stocks)
 # create a histogram where the x axis is the stock name and the y axis is the frequency, make the chart sorted by frequency
-st.write('Number of stock mentions')
+st.subheader('Most frequently mentioned stocks')
 st.bar_chart(data = top_stocks, use_container_width = True)
 
 # get a subset of the sentiment data that only contains the most frequently mentioned stocks
 top_sentiment_data = sentiment_data[sentiment_data['Stock'].isin(top_stocks.index)]
 
 # get the mean sentiment score for each stock
-st.write('Average sentiment score')
+st.subheader('Average sentiment of most trending stocks (bullish = 1, bearish = -1)')
 st.bar_chart(data = top_sentiment_data.groupby('Stock')['ticker_sentiment_score'].mean(), use_container_width = True)
 
+st.subheader('Mean sentiment score over time')
 # get the input from the user
-st.write('Choose custom stock')
-stock_ticker = st.text_input(label = 'INPUT_STOCK', value = 'AAPL', key = None, type = 'default', help = None, on_change = None, args = None, kwargs = None)
+stock_ticker = st.text_input(label = 'Type stock ticker below', value = 'AAPL')
 # get the sentiment data for the stock the user chose
 stock_sentiment_data = sentiment_ticker_list[sentiment_ticker_list['Stock'] == str.upper(stock_ticker)]
 # drop the hour from the index column
@@ -104,5 +103,7 @@ stock_sentiment_data.index = stock_sentiment_data.index.strftime('%Y-%m-%d')
 # create a table containing the daily mean sentiment score for the stock the user chose
 sentiment_over_time = stock_sentiment_data.groupby('Date')['ticker_sentiment_score'].mean()
 # plot the table
-st.write('Mean sentiment score over time')
 st.line_chart(data = sentiment_over_time, use_container_width = True)
+
+# add download button
+st.download_button('Download raw sentiment data', sentiment_ticker_list.to_csv(), 'sentiment_data.csv', 'text/csv')

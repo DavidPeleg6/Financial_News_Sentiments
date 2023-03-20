@@ -88,7 +88,7 @@ if refresh_stocks:
     st.session_state.stock_refresh += 1
 st.header('Basic Stock Data')
 
-stock_ticker = st.text_input(label = 'INPUT_STOCK', value = 'AAPL', label_visibility='hidden')
+stock_ticker = st.text_input(label = 'Type ticker symbol below', value = 'AAPL')
 stock_data = getPastStockPrices(st.session_state.stock_refresh, stock_ticker)
 if not stock_data.empty:
     stock_data = convert_column_names(stock_data)
@@ -99,13 +99,13 @@ if not stock_data.empty:
     # create 3 columns
     col1, col2, col3 = st.columns(3)
     # in column 1, place a table of open, close, adjusted close, high, low, volume, split, and dividend. with 2 points of precision
-    col1.write('Daily Data')
-    col1.table(daily_data[['open', 'close', 'adjusted close', 'high', 'low', 'volume', 'split', 'dividend']].T.style.format('{:.1f}').set_caption('Daily Data'))
+    col1.subheader('Daily Data')
+    col1.table(daily_data[['open', 'close', 'adjusted close', 'high', 'low', 'volume', 'split', 'dividend']].T.style.format('{:.1f}'))
     # in column 2, place the 4 week low, 4 week high, 10 week low, 10 week high, 52 week low and 52 week high
-    col2.write('Historic highs and lows')
+    col2.subheader('Historic highs and lows')
     col2.table(daily_data[['4 week low', '4 week high', '10 week low', '10 week high', '52 week low', '52 week high']].T.style.format('{:.1f}'))
     # in column 3, place the 30 day moving average, 50 day moving average, 100 day moving average and 200 day moving average
-    col3.write('Moving averages')
+    col3.subheader('Moving averages')
     col3.table(daily_data[['30 day moving average', '50 day moving average', '100 day moving average', '200 day moving average']].T.style.format('{:.1f}'))
     # create checkboxes for each column in the stock data, with default being close
     checkboxes = st.multiselect('Select indicators to plot', stock_data.columns, default=['close'])
@@ -116,3 +116,9 @@ if not stock_data.empty:
         fig.add_scatter(x=stock_data.index, y=stock_data[column], name=column)
 
     st.plotly_chart(fig, use_container_width=True)
+
+    # add download button
+    st.download_button('Download raw stock data', stock_data.to_csv(), f'{stock_ticker}_data.csv', 'text/csv')
+
+else:
+    st.subheader('No data for this stock exists in the database')

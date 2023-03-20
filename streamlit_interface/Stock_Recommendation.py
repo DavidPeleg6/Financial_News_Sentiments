@@ -22,6 +22,10 @@ except FileNotFoundError:
 
 st.title('Financial Stock Recommendation System')
 
+st.write('This is a stock recommendation system that uses a combination of machine learning and news sentiment analysis to recommend stocks to buy.')
+st.write('The recommendation system is still under development, so the results are not guaranteed to be accurate. in the meantime, you can use the navigation bar on the left to explore the other features of the app.')
+
+
 # st.dataframe(getPastStockPrices())
 # st.dataframe(data = getRecommendedStocks(predgoal = option))
 
