@@ -80,6 +80,7 @@ def join_earnings_df(price_df: pd.DataFrame, earnings_df: pd.DataFrame, in_place
             # TODO: make this code better, this is not efficent
     # some rows don't get earnings data (coz there ain't any for them) so we get rid of them
     gattai_df = gattai_df.dropna()
+    return gattai_df
 
 def join_sentiment_df(price_df: pd.DataFrame, sentiment_df: pd.DataFrame, 
                       FE = True, in_place = False) -> pd.DataFrame:

@@ -35,13 +35,13 @@ def get_price_data(
     """
     returns a pandas dataframe containing raw stock price data, by default the data for each day
     The columns of the data are named according to consts.stock_col_names
-    Returns None if it could not obtain data
+    Returns an empty dataframe if it could not obtain data
 
     token:     the ticker of the desired stock (e.g, MSFT for Microsoft)
     function:   TODO: what is this
     outputsize: TODO: what is this
 
-    TODO: what if this function fails? currently no handeling of that anywhere. it should return None if it fails
+    TODO: what if this function fails? currently no handeling of that anywhere. it should return pd.DataFrame() if it fails
     """
     parameters = {
         "function": function,
@@ -63,7 +63,10 @@ def get_price_data(
 
 def get_news_sentiments(token: str = None) -> pd.DataFrame:
     # returns the news sentiments for token, if no token is provided sentiments for all tokens is returned
-    # returns None if it couldn't obtain the data for whatever reason
+    # returns an empty dataframe if it couldn't obtain the data for whatever reason
+
+    # TODO: this code currently doesn't work. some sorta type error, fix it later. (there's no data anyways)
+    return pd.DataFrame()
 
     _waste_money = False
     # due to 'running this actually costs money' we doing this instead.
@@ -73,7 +76,7 @@ def get_news_sentiments(token: str = None) -> pd.DataFrame:
             sentiment_df = pd.read_csv("news_sentiments.csv", index_col="Date")
         except:
             print("Failed to read news_sentiments.csv, put it in this folder.")
-            return None
+            return pd.DataFrame()
     else:
         # TODO: this code gets ALL of the sentiments, it should get modified to obtain sentiments for only one token
         # TODO (part2): note that the code below would also need to be modified
@@ -93,7 +96,7 @@ def get_news_sentiments(token: str = None) -> pd.DataFrame:
         # convert Date column to datetime
         sentiment_df['Date'] = pd.to_datetime(sentiment_df['Date'])
     # remove useless data
-    # TODO: 'ticker_sentiment_label' is DEFINETLY not useless, but it's not used right now
+    # TODO: 'ticker_sentiment_label' is DEFINETLY NOT useless, but it's not used right now
     # TODO (part2): modify the code later to use it
     sentiment_df = sentiment_df.drop(['ticker_sentiment_label', 'url'], axis=1)
     # make date not be an index
@@ -105,55 +108,20 @@ def get_news_sentiments(token: str = None) -> pd.DataFrame:
     if token == None:
         return sentiment_df
     # take only the rows with the right token
-    sentiment_df = sentiment_df[consts.sentiment_col_names_dic['Stock'] == token]
+    sentiment_df = sentiment_df.loc[sentiment_df[consts.sentiment_col_names_dic['Stock']] == token]
     sentiment_df = sentiment_df.drop(consts.sentiment_col_names_dic['Stock'], axis=1)
     return sentiment_df
 
 def get_earnings_report(token: str, horizon: str = "12month") -> pd.DataFrame:
     """
     get data from the quaterly reports for the stock 'token' for the past 'horizon' time (defaults to 1 year).
-    returns None if it could not obtain data
-    TODO: right now there's no handeling of a data aquisition failiure, fix that
+    returns an empty dataframe if it could not obtain data
     """
-    functions = consts.financial_sheets_functions
-    # TODO: right now only 'EARNINGS' is actually used for anything, maybe use the other stuff too?
-    overviews = [_get_data({"function": function, "symbol": token, "horizon": horizon}) for function in functions]
-    earnings_df = pd.DataFrame.from_dict(overviews[4]['quarterlyEarnings'])
-    earnings_df['fiscalDateEnding'] = pd.to_datetime(earnings_df['fiscalDateEnding'])
-    earnings_df['reportedDate'] = pd.to_datetime(earnings_df['reportedDate'])
-    # take only up to 2 years ago
-    # earnings_df = earnings_df[earnings_df['fiscalDateEnding'] > datetime.now() - timedelta(days=365*2)]
-    # TODO: this line wasn't commented out in the original code, make sure that getting rid of it doesn't cause issues
-    # convert all columns to numeric except the first two
-    earnings_df.iloc[:, 2:] = earnings_df.iloc[:, 2:].apply(pd.to_numeric)
-    # sort by the date
-    earnings_df['fiscalDateEnding'] = pd.to_datetime(earnings_df['fiscalDateEnding'])
-    earnings_df = earnings_df.sort_values(by='fiscalDateEnding')
-    # reportedDate seems useless so I'm removing it
-    earnings_df = earnings_df.drop('reportedDate', axis=1)
-    return earnings_df
-
-    
-"""
-in the original notebook this function was used on overviews[0] from get_financial_sheets,
-but then afterwards nothing was done with that data
-TODO: maybe actually use this for something? or if not just delete it
-
-def _overview_to_dataframe(overview) -> pd.DataFrame:
-    # converts a JSON formatted overview to a pandas dataframe
-    keys = []
-    cols = []
-    for key, val in overview.items():
-        try:
-            cols.append(float(val))
-            if key not in keys: keys.append(key)
-        # create an exception when the value is not a number
-        except ValueError:
-            try:
-                cols.append(datetime.strptime(val, '%Y-%m-%d'))
-                if key not in keys: keys.append(key)
-            except ValueError:
-                pass
-    # return keys, cols
-    return pd.DataFrame([cols], columns=keys)
-"""
+    try:
+        functions = consts.financial_sheets_functions
+        # TODO: right now only 'EARNINGS' is actually used for anything, maybe use the other stuff too?
+        overviews = [_get_data({"function": function, "symbol": token, "horizon": horizon}) for function in functions]
+        earnings_df = pd.DataFrame.from_dict(overviews[4]['quarterlyEarnings'])
+        return earnings_df
+    except:
+        return pd.DataFrame()

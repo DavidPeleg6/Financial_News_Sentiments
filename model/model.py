@@ -20,16 +20,27 @@ class overwrite_modes(Enum):
     BETTER = 2
     ALWAYS = 3
 
+def _printProgressBar(iteration: int, total: int, prefix: str = '', suffix: str = '',
+                      decimals: int = 1, length: int = 100, fill: str = '█', printEnd: str = "\r"):
+    # displays progress for interation/total, variable names are self explanatory (my documentation's da best)
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\r{prefix} |{bar}| {percent}% _{iteration}/{total}_ {suffix}', end = printEnd)
+    # Print New Line on Complete
+    if iteration == total: 
+        print()
+
 def _get_RMSE(token: str):
     # returns the RMSE of the model for 'token'. If no model currently exists return -1
     try:
         df = pd.read_csv(f"{consts.folders['model']}/{consts.model_data_filename}.csv")
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         # make the folder if it doesn't already exist
         if not path.exists(consts.folders['model']):
             mkdir(consts.folders['model'])
         # save the empty info file in the folder
-        df = pd.DataFrame(columns=["token", "date", "RMSE"])
+        df = pd.DataFrame(columns=["token", "date", "RMSE", "test_months", "optimize"])
         df.to_csv(f"{consts.folders['model']}/{consts.model_data_filename}.csv", index=False)
         return -1
     # get the row 'token' is stored at
@@ -39,17 +50,19 @@ def _get_RMSE(token: str):
         return -1
     return row["RMSE"]
 
-def _save_model_info(token: str, RMSE: float):
+def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
     # saves the info regarding the model's performance, overwrites existing data
     filename = f"{consts.folders['model']}/{consts.model_data_filename}.csv"
     new_data = pd.DataFrame({
             "token": [token],
             "date": [datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")],
-            "RMSE": [RMSE]
+            "RMSE": [RMSE],
+            "test_months": [test_months], 
+            "optimize": [optimize]
         })
     try:
         df = pd.read_csv(filename)
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         # make the folder if it doesn't already exist
         if not path.exists(consts.folders['model']):
             mkdir(consts.folders['model'])
@@ -59,12 +72,12 @@ def _save_model_info(token: str, RMSE: float):
     row = df[df["token"] == token]
     # if it doesn't exist, just add it
     if row.empty:
-        new_data.to_csv(filename, mode='a', header=False)
+        new_data.to_csv(filename, mode='a', header=False, index=False)
     else:
         df[df["token"] == token] = new_data[0]
 
 
-def new_model(token: str, df: pd.DataFrame = None, optimize: bool = True, test_months: int = 3,
+def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True, test_months: int = 3,
               print_acc: bool = False, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> xgb.XGBRegressor:
     """
     Parameters:
@@ -85,11 +98,11 @@ def new_model(token: str, df: pd.DataFrame = None, optimize: bool = True, test_m
 
     If for whatever reason model creation fails, None is returned
     """
-    if df == None:
+    if df.empty:
         df_copy = offline_data.load_gattai(token)
     else:
         df_copy = df.copy()
-    if df_copy == None:
+    if df_copy.empty:
         print("Failed to load data for " + token)
         return None
     # raise the all the columns up by one day so that the model only gets the daily open price and
@@ -149,18 +162,43 @@ def new_model(token: str, df: pd.DataFrame = None, optimize: bool = True, test_m
     RMSE = np.sqrt(mean_squared_error(y_test, model.predict(X_test)))
     if print_acc:
         print(f'{token}\tmodel RMSE:\t{RMSE:.4f}')
+    # now that we have the RMSE over the test data, we can retrain the model over ALL data
+    # TODO: can't do early stopping without a validation set
+    # X_final, y_final = df_copy.drop(columns=['close']), df_copy['close']
+    # model.fit(X_final, y_final, verbose=False)
     filename = f"{consts.folders['model']}/{token}.bin"
     existing_RMSE = _get_RMSE(token)
     should_save = overwrite_mode == overwrite_modes.ALWAYS or existing_RMSE == -1 or RMSE < existing_RMSE
     if overwrite_mode != overwrite_modes.NEVER and should_save:
         try:
             model.save_model(filename)
-            _save_model_info(token, RMSE)
-        except FileNotFoundError:
+            _save_model_info(token, RMSE, test_months, optimize)
+        except (FileNotFoundError, OSError):
             mkdir(consts.folders['model'])
             model.save_model(filename)
-            _save_model_info(token, RMSE)
+            _save_model_info(token, RMSE, test_months, optimize)
     return model
+
+def generate_models(token_list: list, optimize: bool = True, test_months: int = 3,
+                    progress_bar: bool = True, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> int:
+    """
+    Generates a model for each token in 'token_list' and saves them to the models folder
+    if loading_bar = True it shows progress using a bar
+
+    it returns the number of succsussfully generated models
+    """
+    sucsssusfull = 0
+    iter = 0
+    total = len(token_list)
+    for token in token_list:
+        if progress_bar:
+            iter += 1
+            _printProgressBar(iteration = iter, total = total, prefix="Generating models.", suffix=token)
+        model = new_model(token = token, optimize = optimize,
+                          test_months = test_months, overwrite_mode = overwrite_mode)
+        if model != None:
+            sucsssusfull += 1
+        
 
 def load_model(token: str) -> xgb.XGBRegressor:
     """
@@ -171,7 +209,7 @@ def load_model(token: str) -> xgb.XGBRegressor:
     loaded_model = xgb.XGBRegressor()
     try:
         loaded_model.load_model(f"{consts.folders['model']}/{token}.bin")
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         # the folder doesn't exist, make it and make the model
         mkdir(consts.folders['model'])
         loaded_model = new_model(token)
