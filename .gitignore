@@ -7,3 +7,4 @@ news_sentiment_dataset/sentiments
 *.csv
 Financial_reccomender_diagram.pptx
 architecture.jpg
+.gitignore
