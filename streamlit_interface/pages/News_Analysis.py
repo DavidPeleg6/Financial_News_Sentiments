@@ -1,20 +1,18 @@
 import streamlit as st
-import pandas as pd # REMOVE THIS LATER, YOU'RE NOT SUPPOSED TO DIRECTLY USE THAT HERE
+import pandas as pd
 import datetime
 import os
 import boto3
 
 
-_OFFLINE_DATA = False
 time_step_options = ('Daily', 'Weekly', 'Monthly')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30}
-refresh_counter = 0
 if 'sentiment_refresh' not in st.session_state:
     st.session_state.sentiment_refresh = 0
 
 # try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
 try:
-    DB_ACCESS_KEY = pd.read_csv('DB_ACCESS_KEY.csv')
+    DB_ACCESS_KEY = pd.read_csv('streamlit_interface/DB_ACCESS_KEY.csv')
     os.environ['DB_ACCESS_KEY'] = DB_ACCESS_KEY['Access key ID'][0]
     os.environ['DB_SECRET_KEY'] = DB_ACCESS_KEY['Secret access key'][0]
     st.session_state.OFFLINE = True
@@ -32,7 +30,7 @@ def getSentimentData(refreshes) -> pd.DataFrame:
     :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
     """
     if st.session_state.OFFLINE:
-        sentiment_data = pd.read_csv("temp_data/sentiment_data.csv", index_col="Date")
+        sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", index_col="Date")
         sentiment_data.index = pd.to_datetime(sentiment_data.index)
         return sentiment_data
     
@@ -62,7 +60,6 @@ st.set_page_config(layout="wide")
 refresh_sentiments = st.button('Refresh')
 if refresh_sentiments:
     st.session_state.sentiment_refresh += 1
-    refresh_counter = st.session_state.sentiment_refresh
 st.header('Sentiment Analysis of News Articles')
 
 timeframe = st.selectbox(
@@ -78,7 +75,7 @@ number_of_stocks = st.slider(
     step = 1, label_visibility='hidden')
 # add another slider but hide min max values
 
-sentiment_ticker_list = getSentimentData(refresh_counter)
+sentiment_ticker_list = getSentimentData(st.session_state.sentiment_refresh)
 # convert data type to float
 sentiment_ticker_list['ticker_sentiment_score'] = pd.to_numeric(sentiment_ticker_list['ticker_sentiment_score'])
 # add download button
