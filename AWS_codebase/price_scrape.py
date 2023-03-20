@@ -18,7 +18,7 @@ import boto3
 # The maximum number of stocks to scrape
 MAX_STOCKS = 500
 # the number of days to look back
-TIME_BACK = 20
+TIME_BACK = 1
 # TIME_BACK = 365*2
 
 
@@ -57,7 +57,7 @@ def get_stockprice(company_symbol: str = 'MSFT'):
         if response.status_code == 200 and 'Note' not in response.json():
             return response.json()
         else:
-            logger.info(f'API key {parameters["apikey"]} has been used too many times. response note: {response.json()}')
+            # logger.info(f'API key {parameters["apikey"]} has been used too many times. response note: {response.json()}')
             time.sleep(1)
 
 
