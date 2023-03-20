@@ -127,6 +127,10 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     X_train, y_train = train_df_copy.drop(columns=['close']), train_df_copy['close']
     X_test, y_test = test_df_copy.drop(columns=['close']), test_df_copy['close']
 
+    # TODO: delete these lines after you finish fixing the data loading code
+    # print(X_train.head())
+    # print(df_copy.head())
+
     if optimize:
         def _objective(trial):
             # objective function used by optuna

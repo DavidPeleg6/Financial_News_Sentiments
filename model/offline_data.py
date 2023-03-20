@@ -32,6 +32,14 @@ def load_daily_price(token: str, get_online: bool = True) -> pd.DataFrame:
             print("No offline daily price data avilable for " + token)
             return pd.DataFrame()
         df = online_data.get_price_data(token)
+        df.index = pd.to_datetime(df.index)
+        # rename columns
+        df.columns = consts.stock_col_names
+        # convert everything to a float
+        for col in consts.stock_col_names:
+            df[col] = df[col].astype(float)
+        # sort by date
+        df = df.sort_index()
         if df.empty:
             print("Could not obtain online daily price data for " + token)
             return pd.DataFrame()
@@ -73,6 +81,14 @@ def load_weekly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE:
             print("No offline weekly price data avilable for " + token)
             return pd.DataFrame()
         df = online_data.get_price_data(token)
+        df.index = pd.to_datetime(df.index)
+        # rename columns
+        df.columns = consts.stock_col_names
+        # convert everything to a float
+        for col in consts.stock_col_names:
+            df[col] = df[col].astype(float)
+        # sort by date
+        df = df.sort_index()
         if df.empty:
             print("Could not obtain online weekly price data for " + token)
             return pd.DataFrame()
@@ -120,6 +136,14 @@ def load_monthly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE
             print("No offline monthly price data avilable for " + token)
             return pd.DataFrame()
         df = online_data.get_price_data(token)
+        df.index = pd.to_datetime(df.index)
+        # rename columns
+        df.columns = consts.stock_col_names
+        # convert everything to a float
+        for col in consts.stock_col_names:
+            df[col] = df[col].astype(float)
+        # sort by date
+        df = df.sort_index()
         if df.empty:
             print("Could not obtain online monthly price data for " + token)
             return pd.DataFrame()
@@ -163,7 +187,8 @@ def load_earnings_report(token: str, get_online: bool = True) -> pd.DataFrame:
     # df = df[df['fiscalDateEnding'] > datetime.now() - timedelta(days=365*2)]
     # TODO: this line wasn't commented out in the original code, make sure that getting rid of it doesn't cause issues
     # convert all columns to numeric except the first two
-    df.iloc[:, 2:] = df.iloc[:, 2:].apply(pd.to_numeric)
+    # df.iloc[:, 2:] = df.iloc[:, 2:].apply(pd.to_numeric)
+    # TODO: the line above causes crashes for some tokens, figure out why
     # sort by the date
     df['fiscalDateEnding'] = pd.to_datetime(df['fiscalDateEnding'])
     df = df.sort_values(by='fiscalDateEnding')

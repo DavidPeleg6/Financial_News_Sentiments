@@ -1,6 +1,9 @@
 """
 Download data from online sources.
-Note that NONE of the functions here save anything locally, use the functions in offline_data.py for that.
+
+Note that all of the preprocessesing and dtype conversions are only in offline_data.
+
+If you want data just use the functions in offline_data
 """
 
 from time import sleep
@@ -51,14 +54,6 @@ def get_price_data(
     data = _get_data(parameters)
     # convert from a dictionary to a pandas dataframe
     price_df = pd.DataFrame.from_dict(data['Time Series (Daily)'], orient='index')
-    price_df.index = pd.to_datetime(price_df.index)
-    # rename columns
-    price_df.columns = consts.stock_col_names
-    # convert everything to a float
-    for col in consts.stock_col_names:
-        price_df[col] = price_df[col].astype(float)
-    # sort by date
-    price_df = price_df.sort_index()
     return price_df
 
 def get_news_sentiments(token: str = None) -> pd.DataFrame:
