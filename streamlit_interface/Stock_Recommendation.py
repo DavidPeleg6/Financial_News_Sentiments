@@ -30,13 +30,7 @@ except FileNotFoundError:
 st.title('Financial Stock Recommendation System')
 
 st.write('This is a stock recommendation system that uses a combination of machine learning and news sentiment analysis to recommend stocks to buy.')
-st.write('The recommendation system is still under development, so the results are not guaranteed to be accurate. in the meantime, you can use the navigation bar on the left to explore the other features of the app.')
-
-# load xgboost model
-model = xgboost.XGBRegressor()
-model.load_model('streamlit_interface/temp_data/GOOGL.bin')
-#print the feature names
-st.write(model.get_booster().num_features())
+# st.write('The recommendation system is still under development, so the results are not guaranteed to be accurate. in the meantime, you can use the navigation bar on the left to explore the other features of the app.')
 
 time_step_options = ('Daily', 'Weekly', 'Monthly')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30}
