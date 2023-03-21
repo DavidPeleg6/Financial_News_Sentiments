@@ -15,6 +15,9 @@ import boto3
 
 import consts
 
+# how many times a second you try to request data
+_GIMME_DATA_FREQ = 10
+
 def _get_data(parameters):
     """
     TODO: dudu plz write documentation for this idk how this function works
@@ -30,7 +33,7 @@ def _get_data(parameters):
             if 'Note' not in data: 
                 break
             data = None
-            sleep(1)
+            sleep(1.0 / _GIMME_DATA_FREQ)
     return data
 
 def get_price_data(

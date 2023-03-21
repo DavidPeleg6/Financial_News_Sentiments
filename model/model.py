@@ -48,7 +48,7 @@ def _get_RMSE(token: str):
     # if it doesn't exist, return -1
     if row.empty:
         return -1
-    return row["RMSE"][0]
+    return row['RMSE'].iat[0]
 
 def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
     # saves the info regarding the model's performance, overwrites existing data
@@ -73,8 +73,10 @@ def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
     # if it doesn't exist, just add it
     if row.empty:
         new_data.to_csv(filename, mode='a', header=False, index=False)
+    # if it does exist, replace it and overwrite the older file
     else:
-        df[df["token"] == token] = new_data[0]
+        df[df["token"] == token] = new_data
+        df.to_csv(filename, index=False)
 
 
 def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True, test_months: int = 3,

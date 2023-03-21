@@ -6,14 +6,5 @@ these are:
     load_model (in model.py)
 just ctrl+f these troughout EVERY file and then take care of them
 
-go over all of the functions and make sure that they don't modify any files that they don't EXPLICITLY mention modifing
-
-add more 'info' files that just keep track of metadata of other data (shit like date it was made, what sorta data
-is in it, etc, etc)
-
-go over how 'gattai' is formed, make sure that future additions will be easy
-
-model data file has a 0 in it for some dumb reason, fix that
-
 when loading prexisting data, the model generating ends up with an extra date formatted row that it shouldn't have
 ( 1970-01-01 00:00:00.000005880  2023-03-17 this sorta shit). fix it later
