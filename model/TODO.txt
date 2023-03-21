@@ -5,6 +5,3 @@ these are:
     os.mkdir
     load_model (in model.py)
 just ctrl+f these troughout EVERY file and then take care of them
-
-when loading prexisting data, the model generating ends up with an extra date formatted row that it shouldn't have
-( 1970-01-01 00:00:00.000005880  2023-03-17 this sorta shit). fix it later
