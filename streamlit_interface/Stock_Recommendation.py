@@ -8,9 +8,7 @@ from boto3.dynamodb.conditions import Key
 import plotly.express as px
 from pages.Stock_Data import getPastStockPrices, convert_column_names
 from typing import Dict
-from sklearn.metrics import mean_squared_error
 import xgboost as xgb
-from sklearn.metrics import r2_score
 
 
 # # set to wide mode
@@ -77,15 +75,15 @@ def calculate_close_price(refresh: int, stock: str, stock_df: pd.DataFrame) -> D
     # validate the model
     X_test['prediction'] = reg.predict(X_test)
     # rmse score as a percentage of the mean of the close prices
-    score = np.sqrt(mean_squared_error(y_test, X_test['prediction'])) / y_test.mean()
+    # score = np.sqrt(mean_squared_error(y_test, X_test['prediction'])) / y_test.mean()
     # R2 score
-    r2 = r2_score(y_test, X_test['prediction'])
-    n = len(X_test)
-    p = len(X_test.columns)
-    adj_r2 = 1 - (1 - r2) * (n - 1) / (n - p - 1)
+    # r2 = r2_score(y_test, X_test['prediction'])
+    # n = len(X_test)
+    # p = len(X_test.columns)
+    # adj_r2 = 1 - (1 - r2) * (n - 1) / (n - p - 1)
     # get predicted stock price for the entire dataset
     df['prediction'] = reg.predict(df.drop(columns=['close']))
-    return {'stock': stock, 'rmse': score, 'adj_r2': adj_r2, 'r2': r2, 'prediction': df['prediction'], 'cur_price': df['close']}
+    return {'stock': stock, 'prediction': df['prediction'], 'cur_price': df['close']}
 
 
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = 'AAPL')
