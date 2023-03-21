@@ -74,7 +74,7 @@ def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
     if row.empty:
         new_data.to_csv(filename, mode='a', header=False, index=False)
     # if it does exist, replace it and overwrite the older file
-    else:
+    elif not new_data.empty:
         df[df["token"] == token] = new_data
         df.to_csv(filename, index=False)
 
@@ -122,16 +122,12 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     # df_copy = df_copy.drop(columns=[col for col in df_copy.columns if df_copy[col].dtype != 'float64']).dropna()
     df_copy = df_copy.dropna(axis=0)
     # get all times before the test_months months
-    # TODO: split this line into several lines, it's too long
-    train_df_copy, test_df_copy = df_copy[df_copy.index <= df_copy.index.max() - pd.DateOffset(months=test_months)], df_copy[df_copy.index >= df_copy.index.max() - pd.DateOffset(months=test_months)]
+    train_df_copy = df_copy[df_copy.index <= df_copy.index.max() - pd.DateOffset(months=test_months)]
+    test_df_copy =  df_copy[df_copy.index >= df_copy.index.max() - pd.DateOffset(months=test_months)]
 
     # split to X and y
     X_train, y_train = train_df_copy.drop(columns=['close']), train_df_copy['close']
     X_test, y_test = test_df_copy.drop(columns=['close']), test_df_copy['close']
-
-    # TODO: delete these lines after you finish fixing the data loading code
-    # print(X_train.head())
-    # print(df_copy.head())
 
     if optimize:
         def _objective(trial):
@@ -169,7 +165,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     if print_acc:
         print(f'{token}\tmodel RMSE:\t{new_RMSE:.4f}')
     # now that we have the RMSE over the test data, we can retrain the model over ALL data
-    # TODO: can't do early stopping without a validation set
+    # can't do early stopping without a validation set, so nvm
     # X_final, y_final = df_copy.drop(columns=['close']), df_copy['close']
     # model.fit(X_final, y_final, verbose=False)
     filename = f"{consts.folders['model']}/{token}.bin"

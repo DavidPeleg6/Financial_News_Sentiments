@@ -90,20 +90,8 @@ def get_news_sentiments(token: str = None) -> pd.DataFrame:
         while 'LastEvaluatedKey' in response:
             response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
             data.extend(response['Items'])
-        # convert the data to a pandas dataframe
-        sentiment_df = pd.DataFrame(data)
-        # convert Date column to datetime
-        sentiment_df['Date'] = pd.to_datetime(sentiment_df['Date'])
-    # remove useless data
-    # TODO: 'ticker_sentiment_label' is DEFINETLY NOT useless, but it's not used right now
-    # TODO (part2): modify the code later to use it
-    sentiment_df = sentiment_df.drop(['ticker_sentiment_label', 'url'], axis=1)
-    # make date not be an index
-    sentiment_df = sentiment_df.reset_index()
-    # rename the cols
-    sentiment_df = sentiment_df.rename(columns=consts.sentiment_col_names_dic)
-    # convert datatypes to be what they're supposed to be
-    sentiment_df['time'] = pd.to_datetime(sentiment_df['time'])
+    # convert the data to a pandas dataframe
+    sentiment_df = pd.DataFrame(data)
     if token == None:
         return sentiment_df
     # take only the rows with the right token

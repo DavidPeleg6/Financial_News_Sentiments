@@ -4,7 +4,7 @@ If offline data is not avilable, by default just obtain the data (using the func
 """
 import pandas as pd
 from datetime import datetime, timedelta
-import os # TODO: maybe only import mkdir?
+from os import mkdir
 
 import consts
 import online_data
@@ -20,7 +20,7 @@ def save_daily_price(df: pd.DataFrame, token: str):
     try:
         df.to_csv(f"{consts.folders['price']}/{token}_{daily_data_extension}.csv", index=True, index_label='date')
     except (FileNotFoundError, OSError):
-        os.mkdir(consts.folders['price'])
+        mkdir(consts.folders['price'])
         df.to_csv(f"{consts.folders['price']}/{token}_{daily_data_extension}.csv", index=True, index_label='date')
 
 def load_daily_price(token: str, get_online: bool = True) -> pd.DataFrame:
@@ -67,7 +67,7 @@ def save_weekly_price(df: pd.DataFrame, token: str, FEed: bool = True):
         weekly_df.to_csv(f"{consts.folders['price']}/{token}_{weekly_data_extension}.csv", index=True, index_label='date')
         save_daily_price(df, token)
     except (FileNotFoundError, OSError):
-        os.mkdir(consts.folders['price'])
+        mkdir(consts.folders['price'])
         weekly_df.to_csv(f"{consts.folders['price']}/{token}_{weekly_data_extension}.csv", index=True, index_label='date')
         save_daily_price(df, token)
 
@@ -124,7 +124,7 @@ def save_monthly_price(df: pd.DataFrame, token: str, FEed: bool = True):
         monthly_df.to_csv(f"{consts.folders['price']}/{token}_{monthly_data_extension}.csv", index=True, index_label='date')
         save_daily_price(df, token)
     except (FileNotFoundError, OSError):
-        os.mkdir(consts.folders['price'])
+        mkdir(consts.folders['price'])
         monthly_df.to_csv(f"{consts.folders['price']}/{token}_{monthly_data_extension}.csv", index=True, index_label='date')
         save_daily_price(df, token)
 
@@ -168,7 +168,7 @@ def save_earnings_report(df: pd.DataFrame, token: str):
     try:
         df.to_csv(f"{consts.folders['report']}/{token}.csv", index=True, index_label='date')
     except (FileNotFoundError, OSError):
-        os.mkdir(consts.folders['report'])
+        mkdir(consts.folders['report'])
         df.to_csv(f"{consts.folders['report']}/{token}.csv", index=True, index_label='date')
 
 def load_earnings_report(token: str, get_online: bool = True) -> pd.DataFrame:
@@ -198,11 +198,10 @@ def load_earnings_report(token: str, get_online: bool = True) -> pd.DataFrame:
     try:
         df['fiscalDateEnding'] = pd.to_datetime(df['fiscalDateEnding'])
         df['reportedDate'] = pd.to_datetime(df['reportedDate'])
-        # take only up to 2 years ago TODO: why?
-        df = df[df['fiscalDateEnding'] > datetime.now() - timedelta(days=365*2)]
+        # take only up to 2 years ago. (nah, no reason. just take everything)
+        # df = df[df['fiscalDateEnding'] > datetime.now() - timedelta(days=365*2)]
         # convert all columns to numeric except the first two
         df.iloc[:, 2:] = pd.to_numeric(df.iloc[:, 2:])
-        # TODO: the line above causes crashes for some tokens, figure out why
         # sort by the date
         df['fiscalDateEnding'] = pd.to_datetime(df['fiscalDateEnding'])
         df = df.sort_values(by='fiscalDateEnding')
@@ -221,7 +220,7 @@ def save_news_sentiments(df: pd.DataFrame, token: str):
     try:
         df.to_csv(filename, index=True, index_label='date')
     except (FileNotFoundError, OSError):
-        os.mkdir(consts.folders['sentiments'])
+        mkdir(consts.folders['sentiments'])
         df.to_csv(filename, index=True, index_label='date')
 
 
@@ -252,7 +251,18 @@ def load_news_sentiments(token: str, get_online: bool = True) -> pd.DataFrame:
     except:
         print(f"Unkown error in {load_news_sentiments.__name__}")
         return pd.DataFrame
-    # TODO: take the dtype conversions in online_data.get_news_sentiments and put them here
+    # convert Date column to datetime
+    df['Date'] = pd.to_datetime(df['Date'])
+    # remove useless data
+    # TODO: 'ticker_sentiment_label' is DEFINETLY NOT useless, but it's not used right now
+    # TODO (part2): modify the code later to use it
+    df = df.drop(['ticker_sentiment_label', 'url'], axis=1)
+    # make date not be an index
+    df = df.reset_index()
+    # rename the cols
+    df = df.rename(columns=consts.sentiment_col_names_dic)
+    # convert datatypes to be what they're supposed to be
+    df['time'] = pd.to_datetime(df['time'])
     return df
 
 def save_gattai(df: pd.DataFrame, token: str):
@@ -261,7 +271,7 @@ def save_gattai(df: pd.DataFrame, token: str):
     try:
         df.to_csv(filename, index=True, index_label='date')
     except (FileNotFoundError, OSError):
-        os.mkdir(consts.folders['gattai'])
+        mkdir(consts.folders['gattai'])
         df.to_csv(filename, index=True, index_label='date')
 
 def load_gattai(token: str, get_online: bool = True) -> pd.DataFrame:
@@ -280,7 +290,6 @@ def load_gattai(token: str, get_online: bool = True) -> pd.DataFrame:
         earnings_df = load_earnings_report(token)
         sentiment_df = load_news_sentiments(token)
         if price_df.empty:
-            # print("Could not obtain the price data for the stock " + token) : not needed, printed elsewhere
             return pd.DataFrame()
         if not earnings_df.empty:
             price_df = feature_engineering.join_earnings_df(price_df, earnings_df)
