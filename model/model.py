@@ -194,6 +194,7 @@ def generate_models(token_list: list, optimize: bool = True, test_months: int = 
     it returns the number of succsussfully generated models
     """
     sucsssusfull = 0
+    failed_list = []
     iter = 0
     total = len(token_list)
     for token in token_list:
@@ -204,7 +205,11 @@ def generate_models(token_list: list, optimize: bool = True, test_months: int = 
                           test_months = test_months, overwrite_mode = overwrite_mode)
         if model != None:
             sucsssusfull += 1
-        
+        else:
+            failed_list.append(token)
+    print(f"Succsusfully trained {sucsssusfull}/{total} models.")
+    print("Failed to create a model for the following tokens:")
+    print(failed_list)
 
 def load_model(token: str) -> xgb.XGBRegressor:
     """

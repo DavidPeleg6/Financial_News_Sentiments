@@ -34,7 +34,6 @@ def load_daily_price(token: str, get_online: bool = True) -> pd.DataFrame:
             return pd.DataFrame()
         df = online_data.get_price_data(token)
         if df.empty:
-            print("Could not obtain online price data for " + token)
             return pd.DataFrame
         df.index = pd.to_datetime(df.index)
         # rename columns
@@ -86,7 +85,6 @@ def load_weekly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE:
             return pd.DataFrame()
         df = online_data.get_price_data(token)
         if df.empty:
-            print("Could not obtain online price data for " + token)
             return pd.DataFrame
         df.index = pd.to_datetime(df.index)
         # rename columns
@@ -144,7 +142,6 @@ def load_monthly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE
             return pd.DataFrame()
         df = online_data.get_price_data(token)
         if df.empty:
-            print("Could not obtain online price data for " + token)
             return pd.DataFrame
         df.index = pd.to_datetime(df.index)
         # rename columns
@@ -197,19 +194,23 @@ def load_earnings_report(token: str, get_online: bool = True) -> pd.DataFrame:
     except:
         print(f"Unkown error in {load_earnings_report.__name__}")
         return pd.DataFrame
-    df['fiscalDateEnding'] = pd.to_datetime(df['fiscalDateEnding'])
-    df['reportedDate'] = pd.to_datetime(df['reportedDate'])
-    # take only up to 2 years ago TODO: why?
-    df = df[df['fiscalDateEnding'] > datetime.now() - timedelta(days=365*2)]
-    # convert all columns to numeric except the first two
-    df.iloc[:, 2:] = pd.to_numeric(df.iloc[:, 2:])
-    # TODO: the line above causes crashes for some tokens, figure out why
-    # sort by the date
-    df['fiscalDateEnding'] = pd.to_datetime(df['fiscalDateEnding'])
-    df = df.sort_values(by='fiscalDateEnding')
-    # reportedDate seems useless so I'm removing it
-    df = df.drop('reportedDate', axis=1)
-    return df
+    # since some earnings reports are formatted wrong, they'll cause crashes. That's what this try is for
+    try:
+        df['fiscalDateEnding'] = pd.to_datetime(df['fiscalDateEnding'])
+        df['reportedDate'] = pd.to_datetime(df['reportedDate'])
+        # take only up to 2 years ago TODO: why?
+        df = df[df['fiscalDateEnding'] > datetime.now() - timedelta(days=365*2)]
+        # convert all columns to numeric except the first two
+        df.iloc[:, 2:] = pd.to_numeric(df.iloc[:, 2:])
+        # TODO: the line above causes crashes for some tokens, figure out why
+        # sort by the date
+        df['fiscalDateEnding'] = pd.to_datetime(df['fiscalDateEnding'])
+        df = df.sort_values(by='fiscalDateEnding')
+        # reportedDate seems useless so I'm removing it
+        df = df.drop('reportedDate', axis=1)
+        return df
+    except:
+        return pd.DataFrame
 
 def save_news_sentiments(df: pd.DataFrame, token: str):
     # save the news sentiments for the token 'token', if token is None it's assumed that the data is for ALL tokens
