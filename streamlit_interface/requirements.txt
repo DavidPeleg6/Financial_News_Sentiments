@@ -2,3 +2,5 @@ pandas
 numpy
 boto3
 plotly
+xgboost
+sklearn
