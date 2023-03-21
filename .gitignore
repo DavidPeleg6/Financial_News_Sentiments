@@ -18,4 +18,5 @@ model/gattai_data
 model/model_data
 model/price_data
 model/report_data
+model/#gen1
 .gitignore

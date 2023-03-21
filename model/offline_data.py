@@ -3,6 +3,7 @@ Access / save offline data
 If offline data is not avilable, by default just obtain the data (using the functions in online_data.py)
 """
 import pandas as pd
+from datetime import datetime, timedelta
 import os # TODO: maybe only import mkdir?
 
 import consts
@@ -171,7 +172,7 @@ def load_earnings_report(token: str, get_online: bool = True) -> pd.DataFrame:
     returns an empty dataframe if it could not obtain data
     """
     try:
-        df = pd.read_csv(f"{consts.folders['report']}/{token}.csv")
+        df = pd.read_csv(f"{consts.folders['report']}/{token}.csv", index_col=0)
     except (FileNotFoundError, OSError):
         if not get_online:
             print("No offline earnings data avilable for " + token)
@@ -183,11 +184,10 @@ def load_earnings_report(token: str, get_online: bool = True) -> pd.DataFrame:
         save_earnings_report(df, token)
     df['fiscalDateEnding'] = pd.to_datetime(df['fiscalDateEnding'])
     df['reportedDate'] = pd.to_datetime(df['reportedDate'])
-    # take only up to 2 years ago
-    # df = df[df['fiscalDateEnding'] > datetime.now() - timedelta(days=365*2)]
-    # TODO: this line wasn't commented out in the original code, make sure that getting rid of it doesn't cause issues
+    # take only up to 2 years ago TODO: why?
+    df = df[df['fiscalDateEnding'] > datetime.now() - timedelta(days=365*2)]
     # convert all columns to numeric except the first two
-    # df.iloc[:, 2:] = df.iloc[:, 2:].apply(pd.to_numeric)
+    df.iloc[:, 2:] = df.iloc[:, 2:].apply(pd.to_numeric)
     # TODO: the line above causes crashes for some tokens, figure out why
     # sort by the date
     df['fiscalDateEnding'] = pd.to_datetime(df['fiscalDateEnding'])
@@ -217,9 +217,9 @@ def load_news_sentiments(token: str, get_online: bool = True) -> pd.DataFrame:
     """
     try:
         if token == None:
-            df = pd.read_csv(f"{consts.folders['sentiments']}/{consts.all_news_sentiments_filename}.csv")
+            df = pd.read_csv(f"{consts.folders['sentiments']}/{consts.all_news_sentiments_filename}.csv", index_col=0)
         else:
-            df = pd.read_csv(f"{consts.folders['sentiments']}/{token}.csv")
+            df = pd.read_csv(f"{consts.folders['sentiments']}/{token}.csv", index_col=0)
     except (FileNotFoundError, OSError):
         if not get_online:
             print("No offline sentiment data avilable for " + token)
@@ -249,7 +249,7 @@ def load_gattai(token: str, get_online: bool = True) -> pd.DataFrame:
     returns an empty dataframe if it could not obtain data
     """
     try:
-        df = pd.read_csv(f"{consts.folders['gattai']}/{token}.csv")
+        df = pd.read_csv(f"{consts.folders['gattai']}/{token}.csv", index_col=0)
     except (FileNotFoundError, OSError):
         if not get_online:
             print("No offline gattai data avilable for " + token)

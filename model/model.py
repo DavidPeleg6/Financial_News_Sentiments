@@ -48,7 +48,7 @@ def _get_RMSE(token: str):
     # if it doesn't exist, return -1
     if row.empty:
         return -1
-    return row["RMSE"]
+    return row["RMSE"][0]
 
 def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
     # saves the info regarding the model's performance, overwrites existing data
@@ -163,24 +163,24 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     else:
         model = xgb.XGBRegressor(**consts.default_XGboost_params)
     model.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)], verbose=False)
-    RMSE = np.sqrt(mean_squared_error(y_test, model.predict(X_test)))
+    new_RMSE = np.sqrt(mean_squared_error(y_test, model.predict(X_test)))
     if print_acc:
-        print(f'{token}\tmodel RMSE:\t{RMSE:.4f}')
+        print(f'{token}\tmodel RMSE:\t{new_RMSE:.4f}')
     # now that we have the RMSE over the test data, we can retrain the model over ALL data
     # TODO: can't do early stopping without a validation set
     # X_final, y_final = df_copy.drop(columns=['close']), df_copy['close']
     # model.fit(X_final, y_final, verbose=False)
     filename = f"{consts.folders['model']}/{token}.bin"
     existing_RMSE = _get_RMSE(token)
-    should_save = overwrite_mode == overwrite_modes.ALWAYS or existing_RMSE == -1 or RMSE < existing_RMSE
+    should_save = overwrite_mode == overwrite_modes.ALWAYS or existing_RMSE == -1 or new_RMSE < existing_RMSE
     if overwrite_mode != overwrite_modes.NEVER and should_save:
         try:
             model.save_model(filename)
-            _save_model_info(token, RMSE, test_months, optimize)
+            _save_model_info(token, new_RMSE, test_months, optimize)
         except (FileNotFoundError, OSError):
             mkdir(consts.folders['model'])
             model.save_model(filename)
-            _save_model_info(token, RMSE, test_months, optimize)
+            _save_model_info(token, new_RMSE, test_months, optimize)
     return model
 
 def generate_models(token_list: list, optimize: bool = True, test_months: int = 3,

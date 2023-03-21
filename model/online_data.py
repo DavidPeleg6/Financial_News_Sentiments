@@ -43,18 +43,19 @@ def get_price_data(
     token:     the ticker of the desired stock (e.g, MSFT for Microsoft)
     function:   TODO: what is this
     outputsize: TODO: what is this
-
-    TODO: what if this function fails? currently no handeling of that anywhere. it should return pd.DataFrame() if it fails
     """
     parameters = {
         "function": function,
         "symbol": token,
         "outputsize": outputsize
     }
-    data = _get_data(parameters)
-    # convert from a dictionary to a pandas dataframe
-    price_df = pd.DataFrame.from_dict(data['Time Series (Daily)'], orient='index')
-    return price_df
+    try:
+        data = _get_data(parameters)
+        # convert from a dictionary to a pandas dataframe
+        price_df = pd.DataFrame.from_dict(data['Time Series (Daily)'], orient='index')
+        return price_df
+    except:
+        return pd.DataFrame()
 
 def get_news_sentiments(token: str = None) -> pd.DataFrame:
     # returns the news sentiments for token, if no token is provided sentiments for all tokens is returned
