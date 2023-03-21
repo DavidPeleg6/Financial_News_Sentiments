@@ -5,6 +5,8 @@ If offline data is not avilable, by default just obtain the data (using the func
 import pandas as pd
 from datetime import datetime, timedelta
 from os import mkdir
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.compose import make_column_transformer
 
 import consts
 import online_data
@@ -253,10 +255,14 @@ def load_news_sentiments(token: str, get_online: bool = True) -> pd.DataFrame:
         return pd.DataFrame
     # convert Date column to datetime
     df['Date'] = pd.to_datetime(df['Date'])
-    # remove useless data
-    # TODO: 'ticker_sentiment_label' is DEFINETLY NOT useless, but it's not used right now
-    # TODO (part2): modify the code later to use it
-    df = df.drop(['ticker_sentiment_label', 'url'], axis=1)
+    # remove useless data (url more like u r not needed lmao)
+    df = df.drop(['url'], axis=1)
+    # ticker_sentiment_label seems very useful so we gonna ordinal encode it
+    sentiment_label_categories = [
+        'Bearish', 'Somewhat-Bearish', 'Neutral', 'Somewhat-Bullish', 'Bullish']
+    # bear = bad. bull = good. stonk terminology is dumb
+    encoder = OrdinalEncoder(categories = sentiment_label_categories)
+    df['ticker_sentiment_label'] = encoder.fit_transform(df[['ticker_sentiment_label']])
     # make date not be an index
     df = df.reset_index()
     # rename the cols

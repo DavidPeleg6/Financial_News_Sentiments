@@ -14,4 +14,5 @@ streamlit_interface/__pycache__/
 model/aws_keys.txt
 model/__pycache__
 model/test.ipynb
+model/test2.ipynb
 .gitignore
