@@ -63,7 +63,7 @@ def calculate_close_price(refresh: int, stock: str, stock_df: pd.DataFrame) -> D
     df = preprocess(stock_df)
     # get all times before the last month
     train_df, test_df = df[df.index <= df.index.max() - pd.DateOffset(months=2)], df[df.index >= df.index.max() - pd.DateOffset(months=2)]
-    reg = xgb.XGBRegressor(n_estimators=1000, early_stopping_rounds=200, eval_metric='rmse', learning_rate=0.1, max_depth=10, subsample=0.8, colsample_bytree=0.8, random_state=42)
+    reg = xgb.XGBRegressor(n_estimators=100, early_stopping_rounds=50, eval_metric='rmse', learning_rate=0.1, max_depth=10, subsample=0.8, colsample_bytree=0.8, random_state=42)
     # split into train and test sets
     X_train, y_train = train_df.drop(columns=['close']), train_df['close']
     X_test, y_test = test_df.drop(columns=['close']), test_df['close']
