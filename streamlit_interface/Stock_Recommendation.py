@@ -1,10 +1,6 @@
 import streamlit as st
-import pandas as pd # REMOVE THIS LATER, YOU'RE NOT SUPPOSED TO DIRECTLY USE THAT HERE
-import numpy as np # REMOVE THIS LATER, YOU'RE NOT SUPPOSED TO DIRECTLY USE THAT HERE
+import pandas as pd
 import os
-import xgboost
-import boto3
-from boto3.dynamodb.conditions import Key
 import plotly.express as px
 from pages.Stock_Data import getPastStockPrices, convert_column_names
 from typing import Dict
@@ -87,7 +83,7 @@ def calculate_close_price(refresh: int, stock: str, stock_df: pd.DataFrame) -> D
 
 
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = 'AAPL')
-stock_data = getPastStockPrices(st.session_state.stock_refresh, stock_ticker)
+stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)
 if not stock_data.empty:
     stock_data = convert_column_names(stock_data)
     # convert all the columns to floats except for the index column
