@@ -227,7 +227,7 @@ def load_model(token: str) -> xgb.XGBRegressor:
         print("Model creation failed for " + token)
     return loaded_model
 
-def predict_tomorrow(tokens: list, date: datetime.datetime) -> dict:
+def predict_tomorrow_1(tokens: list, date: datetime.datetime) -> dict:
     """
     Predicts the closing prices of the stocks in 'tokens' for the day AFTER 'date' and returns it as a dictionary.
     If prediction fails for a token, the corresponding dictionary entry will map to a None
@@ -246,3 +246,29 @@ def predict_tomorrow(tokens: list, date: datetime.datetime) -> dict:
             pred = model.predict(data.loc[data.loc[date]])
             dic[token] = pred
     return dic
+
+def predict_tomorrow_2(tokens: list, date: datetime.datetime) -> pd.DataFrame:
+    """
+    Predicts the closing prices of the stocks in 'tokens' for the day AFTER 'date'.
+    Returns the prediction as a dataframe structured as follows:
+    token, prediction, model_RMSE, TODO: add more data here?
+    If prediction fails for a token, the corresponding entry will map be a None
+
+    Note that if any of the requiered data doesn't exist yet (model, stock price data, etc)
+    the function will just create it on it's own
+    """
+    df = pd.DataFrame(columns=['token', 'prediction', 'model_RMSE'])
+    for token in tokens:
+        model = load_model(token)
+        if model is None:
+            df = df.append({'token': token,
+                            'prediction': None,
+                            'model_RMSE': _get_RMSE(token)}, ignore_index=True)
+        else:
+            # TODO: make it load the data from another source?
+            data = offline_data.load_gattai(token)
+            pred = model.predict(data.loc[data.loc[date]])
+            df = df.append({'token': token,
+                            'prediction': pred,
+                            'model_RMSE': _get_RMSE(token)}, ignore_index=True)
+    return df
