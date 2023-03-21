@@ -5,6 +5,7 @@ news_sentiment_dataset/sentiments
 *.log
 *.json
 *.csv
+*.bin
 Financial_reccomender_diagram.pptx
 architecture.jpg
 .ipynb_checkpoints/
@@ -13,10 +14,4 @@ streamlit_interface/__pycache__/
 model/aws_keys.txt
 model/__pycache__
 model/test.ipynb
-model/S&P list.csv
-model/gattai_data
-model/model_data
-model/price_data
-model/report_data
-model/#gen1
 .gitignore
