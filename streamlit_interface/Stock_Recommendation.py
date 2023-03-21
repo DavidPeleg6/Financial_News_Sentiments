@@ -96,7 +96,7 @@ if not stock_data.empty:
     # create checkboxes for each column in the stock data, with default being close
     # checkboxes = st.multiselect('Select indicators to plot', stock_data.columns, default=['close'])
     # create a plotly figure of close price
-    fig = px.line(title=f'{stock_ticker} close price')
+    fig = px.line(title=f'\'{str.upper(stock_ticker)}\' stock price')
     # add close price to the plotly figure
     fig.add_scatter(x=stock_data.index, y=stock_data['close'], name='close')
     # add predictions to the plotly figure
