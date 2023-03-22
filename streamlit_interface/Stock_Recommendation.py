@@ -5,10 +5,12 @@ import plotly.express as px
 from pages.Stock_Data import getPastStockPrices, convert_column_names
 from typing import Dict
 import xgboost as xgb
+import requests
+import random
+import string
+import time
 
 
-# # set to wide mode
-# st.set_page_config(layout="wide")
 # try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
 try:
     DB_ACCESS_KEY = pd.read_csv('DB_ACCESS_KEY.csv')
@@ -79,8 +81,32 @@ def calculate_close_price(refresh: int, stock: str, stock_df: pd.DataFrame) -> D
     # adj_r2 = 1 - (1 - r2) * (n - 1) / (n - p - 1)
     # get predicted stock price for the entire dataset
     df['prediction'] = reg.predict(df.drop(columns=['close']))
-    return {'stock': stock, 'prediction': df['prediction'], 'cur_price': df['close']}
+    return {'stock': stock, 'prediction': df['prediction'], 'cur_price': df['close'], 'model': reg}
 
+
+def get_stockprice(company_symbol: str = 'MSFT'):
+    global logger
+    endpoint = "https://www.alphavantage.co/query"
+    parameters = {
+        "function": "TIME_SERIES_DAILY_ADJUSTED",
+        "symbol": company_symbol,
+        "outputsize": 'full'
+    }
+    for _ in range(100):
+        parameters['apikey'] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=15))
+        # Send a GET request to the API endpoint
+        response = requests.get(endpoint, params=parameters)
+        # Check if the request was successful
+        if response.status_code == 200 and 'Note' not in response.json():
+            return response.json()
+        else:
+            time.sleep(1)
+    return None
+
+
+@st.cache_data(ttl=60*60*24)
+def predict_close_price(refresh: int, stock: str, model) -> float:
+    cur_price = get_stockprice(stock)['Time Series (Daily)'][list(get_stockprice(stock)['Time Series (Daily)'].keys())[0]]['4. close']
 
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = 'AAPL')
 stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)
