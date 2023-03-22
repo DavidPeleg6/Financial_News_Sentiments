@@ -55,8 +55,6 @@ def getSentimentData(refreshes) -> pd.DataFrame:
     return sentiment_ticker_list
 
 
-# set to wide mode
-st.set_page_config(layout="wide")
 refresh_sentiments = st.button('Refresh')
 if refresh_sentiments:
     st.session_state.sentiment_refresh += 1

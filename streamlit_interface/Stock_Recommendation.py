@@ -11,6 +11,9 @@ import string
 import time
 
 
+# set to wide mode
+st.set_page_config(layout="wide")
+
 # try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
 try:
     DB_ACCESS_KEY = pd.read_csv('DB_ACCESS_KEY.csv')
