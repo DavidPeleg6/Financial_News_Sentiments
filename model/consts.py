@@ -14,9 +14,8 @@ financial_sheets_functions = ['OVERVIEW', 'INCOME_STATEMENT', 'BALANCE_SHEET', '
 # TODO: right now only 'EARNINGS' is actually used for anything, maybe use the other stuff too?
 
 # df column names
-stock_col_names = ['open', 'high', 'low', 'close', 'adjusted_close',# TODO: check where it's used,maybe move it there
+stock_col_names = ['open', 'high', 'low', 'close', 'adjusted_close',
                     'volume', 'dividend_amount', 'split_coefficient']
-useless_col_names = ['split_coefficient', 'dividend_amount']# TODO: check where it's used,maybe move it there
 sentiment_col_names_dic = {
                     'ticker_sentiment_score': 'sentiment',
                     'relevance_score': 'relevance',
