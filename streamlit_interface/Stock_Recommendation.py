@@ -13,6 +13,9 @@ import time
 
 # set to wide mode
 st.set_page_config(layout="wide")
+refresh_stocks = st.button('Refresh', key='reccom_refresh')
+if refresh_stocks:
+    st.session_state.recomm_refresh += 1
 
 # try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
 try:
@@ -35,11 +38,6 @@ time_step_options = ('Daily', 'Weekly', 'Monthly')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30}
 if 'recomm_refresh' not in st.session_state:
     st.session_state.recomm_refresh = 0
-
-refresh_stocks = st.button('Refresh', key='reccom_refresh')
-if refresh_stocks:
-    st.session_state.recomm_refresh += 1
-
 
 def preprocess(stock_df: pd.DataFrame):
     df = stock_df.copy()
