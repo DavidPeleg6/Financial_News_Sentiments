@@ -12,11 +12,11 @@ from random import choices
 import pandas as pd
 import requests
 import boto3
+import logging
 
 import consts
 
-# how many times a second you try to request data
-_GIMME_DATA_FREQ = 10
+
 
 def _get_data(parameters):
     """
@@ -33,7 +33,7 @@ def _get_data(parameters):
             if 'Note' not in data: 
                 break
             data = None
-            sleep(1.0 / _GIMME_DATA_FREQ)
+            sleep(1)
     return data
 
 def get_price_data(
@@ -112,3 +112,29 @@ def get_earnings_report(token: str, horizon: str = "12month") -> pd.DataFrame:
         return earnings_df
     except:
         return pd.DataFrame()
+
+def write_to_DDB(table: str, data: dict) -> bool:
+    """
+    Write 'data' to the dynamoDB table called 'table'.
+    Returns if the write was succsussful or not
+    """
+    try:
+        # get client
+        dynamodb = boto3.client('dynamodb', region_name='us-east-2',
+                                aws_access_key_id=consts.aws_access_key_id,
+                                aws_secret_access_key=consts.aws_secret_access_key)
+        # put the item in the table
+        response = dynamodb.put_item(
+            TableName=table,
+            Item=data
+        )
+        # Check response to see if it wrote good
+        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+            logging.info(f"Successfully wrote item to {table}")
+            return True
+        else:
+            logging.error(f"Failed to write item to {table}")
+            return False
+    except Exception as e:
+        logging.error(f"Error writing item to {table}: {e}")
+        return False
