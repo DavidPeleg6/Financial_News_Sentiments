@@ -6,7 +6,7 @@ import random
 from datetime import datetime, timedelta
 
 # the number of days to look back
-TIME_BACK = 5
+TIME_BACK = 2
 # TIME_BACK = 365*2
 
 
