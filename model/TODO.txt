@@ -1,0 +1,7 @@
+ALL instanced of reading / writing files need to be modified to use proper file paths
+these are:
+    df.to_csv
+    pd.read_csv
+    os.mkdir
+    load_model (in model.py)
+just ctrl+f these troughout EVERY file and then take care of them

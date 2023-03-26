@@ -173,5 +173,4 @@ def getPastAccuracy(time_back: int = 100, time : datetime.datetime = None) -> pd
     if less than a day has passed since the last call to this function, the cached result will be used
     """
     # TODO: actually do this, right now it just returns a randomly generated list
-    # TODO: when this thing actually returns a real value, use 'time_back' to truncate it
     return pd.read_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), _datapth, 'past_accuracy.csv'))
