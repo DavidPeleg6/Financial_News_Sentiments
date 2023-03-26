@@ -159,6 +159,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             error = mean_squared_error(y_test, y_pred, squared=False)
             return error
         study = optuna.create_study(direction='minimize')
+        # TODO: HIDE THE OUTPUT, THIS THING PRINTS A LOT OF USELESS INFO
         study.optimize(_objective, n_trials=consts.optuna_optimization_trials)
         model = xgb.XGBRegressor(**study.best_params)
     else:
@@ -306,19 +307,24 @@ def write_predictions_to_DDB(tokens: list,
             print("Error is:\t" + str(e))
             continue
         # iterate over the rows
-        for index, row in pred_df.iterrows():
-            row_dict = row.to_dict()
-            convdict = {
-                'Date': {'S': row_dict['Date']},
-                'Stock': {'S': row_dict['Stock']},
-                'Close': {'N': str(row_dict['Close'])}
-            }
-            # upload to dynamoDB
-            if not write_to_DDB(consts.prediction_table_name, convdict):
-                print("Failed to upload for " + token)
-                continue
-            if progress_bar:
-                _printProgressBar(iteration = iter, total = total, prefix=token, suffix=f"{index}/{len(pred_df)}")
+        try:
+            for index, row in pred_df.iterrows():
+                row_dict = row.to_dict()
+                convdict = {
+                    'Date': {'S': row_dict['Date']},
+                    'Stock': {'S': row_dict['Stock']},
+                    'Close': {'N': str(row_dict['Close'])}
+                }
+                # upload to dynamoDB
+                if not write_to_DDB(consts.prediction_table_name, convdict):
+                    print("Failed to upload for " + token)
+                    continue
+                if progress_bar:
+                    _printProgressBar(iteration = iter, total = total, prefix=token, suffix=f"{index}/{len(pred_df)}")
+        except Exception as e:
+            print("Unknown error when trying to process " + token)
+            print("Error msg:\t" + str(e))
+            continue
         succsuss_count += 1
     if progress_bar:
         print(f"Completed predictioning for {succsuss_count}/{total} tokens.")
