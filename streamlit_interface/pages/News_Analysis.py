@@ -105,5 +105,11 @@ sentiment_over_time = stock_sentiment_data.groupby('time_published')['sentiment'
 # plot the table
 st.line_chart(data = sentiment_over_time, use_container_width = True)
 
+# in preperation for the last feature of volume x sentiment, here is the query to be used
+"""SELECT prices.stock_name FROM prices 
+WHERE prices.stock_name IN ('stock1', 'stock2', ...) 
+AND prices.volume > (SELECT AVG(prices.volume)*1.1 FROM prices.stocks);"""
+
+
 # add download button
 st.download_button('Download raw sentiment data', sentiment_ticker_list.to_csv(), 'sentiment_data.csv', 'text/csv')
