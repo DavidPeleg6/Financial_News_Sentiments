@@ -5,10 +5,6 @@ import string
 import random
 from datetime import datetime, timedelta
 
-# the number of days to look back
-TIME_BACK = 2
-# TIME_BACK = 365*2
-
 
 def get_stockprice(company_symbol: str = 'MSFT'):
     endpoint = "https://www.alphavantage.co/query"
@@ -28,7 +24,7 @@ def get_stockprice(company_symbol: str = 'MSFT'):
             time.sleep(1)
 
 
-def add_indicators(price_df) -> pd.DataFrame:
+def add_indicators(price_df, time_back) -> pd.DataFrame:
     """
     Add indicators to the price dataframe
     :param price_df: the price dataframe
@@ -51,11 +47,11 @@ def add_indicators(price_df) -> pd.DataFrame:
     price_df['52_week_high'] = price_df['adj_close'].rolling(52*7).max()
     price_df['52_week_low'] = price_df['adj_close'].rolling(52*7).min()
     # take only the data up to 2 years ago and convert to numeric
-    price_df = price_df[price_df.index >= datetime.now() - timedelta(days=TIME_BACK)].dropna().sort_index(ascending=False)
+    price_df = price_df[price_df.index >= datetime.now() - timedelta(days=time_back)].dropna().sort_index(ascending=False)
     return price_df
 
 
-def convert_dict_to_df(stock: str, daily_prices: dict) -> pd.DataFrame:
+def convert_dict_to_df(stock: str, daily_prices: dict, time_back=2) -> pd.DataFrame:
     """Convert a dictionary of stock data to a pandas dataframe.
     
     Args:
@@ -72,5 +68,5 @@ def convert_dict_to_df(stock: str, daily_prices: dict) -> pd.DataFrame:
     price_df = pd.DataFrame(rows, columns=['stock', 'date', 'open', 'high', 'low', 'close', 'adj_close', 'volume', 'dividend', 'split'])
     # convert all columns to numeric except for the date and stock
     price_df[price_df.columns[2:]] = price_df[price_df.columns[2:]].apply(pd.to_numeric, errors='coerce')
-    price_df = add_indicators(price_df)
+    price_df = add_indicators(price_df, time_back)
     return price_df
