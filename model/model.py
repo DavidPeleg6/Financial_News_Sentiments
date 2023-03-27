@@ -127,7 +127,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
 
     # split to X and y
     tar_col = ['close']
-    leak_col = ['adjusted_close']
+    leak_col = [] # ain't any, it can stay
     X_train, y_train = train_df_copy.drop(columns=tar_col + leak_col), train_df_copy[tar_col]
     X_test, y_test = test_df_copy.drop(columns=tar_col + leak_col), test_df_copy[tar_col]
 
@@ -152,7 +152,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             
             # Train the model
             model = xgb.XGBRegressor(**params)
-            model.fit(X_train, y_train)
+            model.fit(X_train, y_train, verbose=False, feature_names = X_train.columns)
             # Evaluate the model on the testation set
             y_pred = model.predict(X_test)
             error = mean_squared_error(y_test, y_pred, squared=False)
@@ -163,14 +163,15 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
         model = xgb.XGBRegressor(**study.best_params)
     else:
         model = xgb.XGBRegressor(**consts.default_XGboost_params)
-    model.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)], verbose=False)
+    model.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)], 
+              verbose=False, feature_names = X_train.columns)
     new_RMSE = np.sqrt(mean_squared_error(y_test, model.predict(X_test)))
     if print_acc:
         print(f'{token}\tmodel RMSE:\t{new_RMSE:.4f}')
     # now that we have the RMSE over the test data, we can retrain the model over ALL data
     # can't do early stopping without a validation set, so nvm
     # X_final, y_final = df_copy.drop(columns=['close']), df_copy['close']
-    # model.fit(X_final, y_final, verbose=False)
+    # model.fit(X_final, y_final, verbose=False, feature_names = X_train.columns)
     filename = f"{consts.folders['model']}/{token}.bin"
     existing_RMSE = _get_RMSE(token)
     should_save = overwrite_mode == overwrite_modes.ALWAYS or existing_RMSE == -1 or new_RMSE < existing_RMSE
