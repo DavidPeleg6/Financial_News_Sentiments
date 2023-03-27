@@ -126,8 +126,10 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     test_df_copy =  df_copy[df_copy.index >= df_copy.index.max() - pd.DateOffset(months=test_months)]
 
     # split to X and y
-    X_train, y_train = train_df_copy.drop(columns=['close']), train_df_copy['close']
-    X_test, y_test = test_df_copy.drop(columns=['close']), test_df_copy['close']
+    tar_col = ['close']
+    leak_col = ['adjusted_close']
+    X_train, y_train = train_df_copy.drop(columns=tar_col + leak_col), train_df_copy[tar_col]
+    X_test, y_test = test_df_copy.drop(columns=tar_col + leak_col), test_df_copy[tar_col]
 
     if optimize:
         def _objective(trial):
