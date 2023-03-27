@@ -80,8 +80,6 @@ def convert_column_names(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = df.columns.str.replace('adj', 'adjusted')
     return df
 
-# set to wide mode
-st.set_page_config(layout="wide")
 
 refresh_stocks = st.button('Refresh')
 if refresh_stocks:

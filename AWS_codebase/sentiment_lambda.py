@@ -71,7 +71,7 @@ def lambda_handler(event, context):
     # Create a SQLAlchemy engine object
     engine = create_engine(f'mysql+pymysql://{username}:{password}@{url}/stock_data', echo=False)
     # Convert the pandas DataFrame to a MySQL table
-    sentiment_df.to_sql(name='Sentiments', con=engine, if_exists='replace', index=False)
+    sentiment_df.to_sql(name='Sentiments', con=engine, if_exists='append', index=False)
     # Close the connection
     conn.close()
 
