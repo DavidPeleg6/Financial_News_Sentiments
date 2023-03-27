@@ -8,6 +8,7 @@ import pandas as pd
 import pymysql
 from sqlalchemy import create_engine
 import os
+import sqlalchemy
 
 
 def get_sentiments(company_symbol='', news_topic='', time_from='', time_to='', sort_by='LATEST'):
@@ -71,7 +72,7 @@ def lambda_handler(event, context):
     # Create a SQLAlchemy engine object
     engine = create_engine(f'mysql+pymysql://{username}:{password}@{url}/stock_data', echo=False)
     # Convert the pandas DataFrame to a MySQL table
-    sentiment_df.to_sql(name='Sentiments', con=engine, if_exists='append', index=False)
+    sentiment_df.to_sql(name='Sentiments', con=engine, if_exists='append', index=False, dtype={'time_published': sqlalchemy.types.DATETIME})
     # Close the connection
     conn.close()
 
