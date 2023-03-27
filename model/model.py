@@ -1,6 +1,5 @@
 """
 Function for creating, saving, and loading predictive models
-TODO: currently this code is limited to xgboost models, generalize it later
 """
 
 import pandas as pd
@@ -20,8 +19,6 @@ class overwrite_modes(Enum):
     NEVER = 1
     BETTER = 2
     ALWAYS = 3
-
-# TODO: refit this code to run on AWS. models go in S3 and data goes in dynamoDB
 
 def _printProgressBar(iteration: int, total: int, prefix: str = '', suffix: str = '',
                       decimals: int = 1, length: int = 100, fill: str = '█', printEnd: str = "\r"):
@@ -158,8 +155,8 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             y_pred = model.predict(X_test)
             error = mean_squared_error(y_test, y_pred, squared=False)
             return error
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
         study = optuna.create_study(direction='minimize')
-        # TODO: HIDE THE OUTPUT, THIS THING PRINTS A LOT OF USELESS INFO
         study.optimize(_objective, n_trials=consts.optuna_optimization_trials)
         model = xgb.XGBRegressor(**study.best_params)
     else:
@@ -233,9 +230,11 @@ def load_model(token: str) -> xgb.XGBRegressor:
 
 def predict_tomorrow(tokens: list, date: datetime.date) -> pd.DataFrame:
     """
+    ___ not used anymore, the implementation on aws is completly different 
+
     Predicts the closing prices of the stocks in 'tokens' for the day AFTER 'date'.
     Returns the prediction as a dataframe structured as follows:
-    token, prediction, model_RMSE, TODO: add more data here?
+    token, prediction, model_RMSE
     If prediction fails for a token, the corresponding entry will map be a None
 
     Note that if any of the requiered data doesn't exist yet (model, stock price data, etc)
@@ -249,7 +248,6 @@ def predict_tomorrow(tokens: list, date: datetime.date) -> pd.DataFrame:
                             'prediction': None,
                             'model_RMSE': _get_RMSE(token)}, ignore_index=True)
         else:
-            # TODO: make it load the data from another source?
             data = offline_data.load_gattai(token)
             pred = model.predict(data.loc[data.loc[date]])
             df = df.append({'token': token,
@@ -261,14 +259,14 @@ def write_predictions_to_DDB(tokens: list,
         start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=30*consts.test_months), 
                       end: datetime.date = datetime.datetime.now().date(), progress_bar: bool = True):
     """
+    ___ not used anywere, we're switching to RDS
+
     produces predictions for each token in 'tokens' for the dates between 'start' and 'end'
     writes all of those predictions to the table in dynamoDB called 'consts.prediction_table_name'
 
     DON'T RUN THIS FUNCTION MORE THAN ONCE FOR THE SAME STOCKS AND DATES
     IT DOESN'T CHECK IF THE DATA ALREADY EXISTS
     DOING SO WILL GENERATE DUPLICATE DATA
-
-    TODO: make a function that checks for and deletes duplicate data because that will definitely happen
     """
     succsuss_count = 0
     iter = 0
@@ -328,5 +326,3 @@ def write_predictions_to_DDB(tokens: list,
         succsuss_count += 1
     if progress_bar:
         print(f"Completed predictioning for {succsuss_count}/{total} tokens.")
-
-# TODO: make a functions that creates predictions ONLY for dates that haven't been predicted already
