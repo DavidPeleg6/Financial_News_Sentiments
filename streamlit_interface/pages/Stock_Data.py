@@ -1,9 +1,10 @@
 import streamlit as st
-import pandas as pd # REMOVE THIS LATER, YOU'RE NOT SUPPOSED TO DIRECTLY USE THAT HERE
+import pandas as pd 
 import os
-import boto3
-from boto3.dynamodb.conditions import Key
+# import boto3
+# from boto3.dynamodb.conditions import Key
 import plotly.express as px
+import pymysql
 
 
 time_step_options = ('Daily', 'Weekly', 'Monthly')
@@ -13,13 +14,15 @@ if 'stock_refresh' not in st.session_state:
 
 # try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
 try:
-    DB_ACCESS_KEY = pd.read_csv('streamlit_interface/DB_ACCESS_KEY.csv')
-    os.environ['DB_ACCESS_KEY'] = DB_ACCESS_KEY['Access key ID'][0]
-    os.environ['DB_SECRET_KEY'] = DB_ACCESS_KEY['Secret access key'][0]
+    DB_ACCESS_KEY = pd.read_csv('streamlit_interface/db_key_pass.csv')
+    os.environ['ID'] = DB_ACCESS_KEY['ID'][0]
+    os.environ['PASS'] = DB_ACCESS_KEY['PASS'][0]
+    os.environ['URL'] = DB_ACCESS_KEY['URL'][0]
     st.session_state.OFFLINE = True
 except FileNotFoundError:
     st.session_state.OFFLINE = False
 
+st.session_state.OFFLINE = False
 
 @st.cache_data(ttl=60*60*24)
 def getPastStockPrices(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
@@ -32,30 +35,45 @@ def getPastStockPrices(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
         # get stock prices of a stock in the Stock column
         stock_prices = stock_prices[stock_prices['Stock'] == str.upper(stock)].drop(columns=['Stock'], errors='ignore')
     else:
-        # specify key and secret key
-        aws_access_key_id = os.environ['DB_ACCESS_KEY']
-        aws_secret_access_key = os.environ['DB_SECRET_KEY']
-        # # create a boto3 client and import all stock prices from it
-        dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-        table = dynamodb.Table('StockPrices')
-        # keep scanning until we have all the data in the table
-        # create a filter expression to only get the data for the specified stock
-        response = table.query(KeyConditionExpression=Key('Stock').eq(str.upper(stock)))
-        if len(response['Items']) == 0:
-            st.write('No data for this stock')
-            return pd.DataFrame()
-        data = response['Items']
-        # create a progress bar to show the user that the data is being loaded
-        while 'LastEvaluatedKey' in response:
-            response = table.query(KeyConditionExpression=Key('Stock').eq(stock), ExclusiveStartKey=response['LastEvaluatedKey'])
-            data.extend(response['Items'])
-            # show the number of items loaded so far
-            st.write(len(data))
+        # # specify key and secret key
+        # aws_access_key_id = os.environ['DB_ACCESS_KEY']
+        # aws_secret_access_key = os.environ['DB_SECRET_KEY']
+        # # # create a boto3 client and import all stock prices from it
+        # dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+        # table = dynamodb.Table('StockPrices')
+        # # keep scanning until we have all the data in the table
+        # # create a filter expression to only get the data for the specified stock
+        # response = table.query(KeyConditionExpression=Key('Stock').eq(str.upper(stock)))
+        # if len(response['Items']) == 0:
+        #     st.write('No data for this stock')
+        #     return pd.DataFrame()
+        # data = response['Items']
+        # # create a progress bar to show the user that the data is being loaded
+        # while 'LastEvaluatedKey' in response:
+        #     response = table.query(KeyConditionExpression=Key('Stock').eq(stock), ExclusiveStartKey=response['LastEvaluatedKey'])
+        #     data.extend(response['Items'])
+        #     # show the number of items loaded so far
+        #     st.write(len(data))
+        # Connect to the database
+        connection = pymysql.connect(
+            host=os.environ['URL'],
+            user=os.environ['ID'],
+            passwd=os.environ['PASS'],
+            db="stock_data"
+        )
+        # TODO make this also run for different intervals chosen by the user
+        # get data from the past month unless specified to take the entire dataframe
+        query = f"""SELECT *
+                FROM Prices
+                WHERE Stock = '{str.upper(stock)}';"""
+        # Query the database and load results into a pandas dataframe
+        data = pd.read_sql_query(query, connection, parse_dates=['Date'])
+        connection.close()
         # convert the data to a pandas dataframe and drop the stock column
         stock_prices = pd.DataFrame(data).drop(columns=['Stock'], errors='ignore')
         stock_prices.set_index('Date', inplace=True)
     # convert Date column to datetime
-    stock_prices.index = pd.to_datetime(stock_prices.index)
+    # stock_prices.index = pd.to_datetime(stock_prices.index)
     # make the index the Date column
     stock_prices.sort_index(ascending=False, inplace=True)
     return stock_prices
@@ -80,8 +98,6 @@ def convert_column_names(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = df.columns.str.replace('adj', 'adjusted')
     return df
 
-# set to wide mode
-st.set_page_config(layout="wide")
 
 refresh_stocks = st.button('Refresh')
 if refresh_stocks:
@@ -117,6 +133,7 @@ if not stock_data.empty:
 
     st.plotly_chart(fig, use_container_width=True)
 
+    # TODO add the earnings stock data histograms pulled from the database
     # add download button
     st.download_button('Download raw stock data', stock_data.to_csv(), f'{stock_ticker}_data.csv', 'text/csv')
 

@@ -14,11 +14,14 @@ import datetime
 
 import consts
 import offline_data
+from online_data import write_to_DDB
 
 class overwrite_modes(Enum):
     NEVER = 1
     BETTER = 2
     ALWAYS = 3
+
+# TODO: refit this code to run on AWS. models go in S3 and data goes in dynamoDB
 
 def _printProgressBar(iteration: int, total: int, prefix: str = '', suffix: str = '',
                       decimals: int = 1, length: int = 100, fill: str = '█', printEnd: str = "\r"):
@@ -79,7 +82,7 @@ def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
         df.to_csv(filename, index=False)
 
 
-def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True, test_months: int = 3,
+def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True, test_months: int = consts.test_months,
               print_acc: bool = False, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> xgb.XGBRegressor:
     """
     Parameters:
@@ -185,7 +188,7 @@ def generate_models(token_list: list, optimize: bool = True, test_months: int = 
                     progress_bar: bool = True, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> int:
     """
     Generates a model for each token in 'token_list' and saves them to the models folder
-    if loading_bar = True it shows progress using a bar
+    if progress_bar = True it shows progress using a bar
 
     it returns the number of succsussfully generated models
     """
@@ -227,7 +230,7 @@ def load_model(token: str) -> xgb.XGBRegressor:
         print("Model creation failed for " + token)
     return loaded_model
 
-def predict_tomorrow(tokens: list, date: datetime.datetime) -> pd.DataFrame:
+def predict_tomorrow(tokens: list, date: datetime.date) -> pd.DataFrame:
     """
     Predicts the closing prices of the stocks in 'tokens' for the day AFTER 'date'.
     Returns the prediction as a dataframe structured as follows:
@@ -252,3 +255,72 @@ def predict_tomorrow(tokens: list, date: datetime.datetime) -> pd.DataFrame:
                             'prediction': pred,
                             'model_RMSE': _get_RMSE(token)}, ignore_index=True)
     return df
+
+def write_predictions_to_DDB(tokens: list,
+        start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=30*consts.test_months), 
+                      end: datetime.date = datetime.datetime.now().date(), progress_bar: bool = True):
+    """
+    produces predictions for each token in 'tokens' for the dates between 'start' and 'end'
+    writes all of those predictions to the table in dynamoDB called 'consts.prediction_table_name'
+
+    DON'T RUN THIS FUNCTION MORE THAN ONCE FOR THE SAME STOCKS AND DATES
+    IT DOESN'T CHECK IF THE DATA ALREADY EXISTS
+    DOING SO WILL GENERATE DUPLICATE DATA
+
+    TODO: make a function that checks for and deletes duplicate data because that will definitely happen
+    """
+    succsuss_count = 0
+    iter = 0
+    total = len(tokens)
+    for token in tokens:
+        if progress_bar:
+            iter += 1
+            _printProgressBar(iteration = iter, total = total, prefix=token, suffix="0/?")
+        # get model
+        model = load_model(token)
+        if model == None:
+            print("Failed to load model for " + token)
+            continue
+        # get data
+        df = offline_data.load_gattai(token)
+        if df.empty:
+            df = offline_data.load_daily_price(token)
+            if df.empty:
+                print("Failed to load data for " + token)
+                continue
+        # drop the 'close' column
+        df = df.drop(columns=['close'])
+        # get only the data in the desired range
+        time_format = "%Y-%m-%d"
+        start_s = start.strftime(time_format)
+        end_s = end.strftime(time_format)
+        df = df.loc[start_s:end_s]
+        pred_df = pd.DataFrame(columns=["Date", "Stock", "Close"])
+        pred_df["Date"] = df.index.copy()
+        pred_df["Stock"] = token
+        # predict
+        try:
+            pred_df["Close"] = model.predict(df)
+        except Exception as e:
+            print("Failed to predict for " + token)
+            print("Error is:\t" + str(e))
+            continue
+        # iterate over the rows
+        for index, row in pred_df.iterrows():
+            row_dict = row.to_dict()
+            convdict = {
+                'Date': {'S': row_dict['Date']},
+                'Stock': {'S': row_dict['Stock']},
+                'Close': {'N': str(row_dict['Close'])}
+            }
+            # upload to dynamoDB
+            if not write_to_DDB(consts.prediction_table_name, convdict):
+                print("Failed to upload for " + token)
+                continue
+            if progress_bar:
+                _printProgressBar(iteration = iter, total = total, prefix=token, suffix=f"{index}/{len(pred_df)}")
+        succsuss_count += 1
+    if progress_bar:
+        print(f"Completed predictioning for {succsuss_count}/{total} tokens.")
+
+# TODO: make a functions that creates predictions ONLY for dates that haven't been predicted already

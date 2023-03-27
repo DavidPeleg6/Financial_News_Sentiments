@@ -1,0 +1,13 @@
+in order to add python packages to your lambdas:
+1. create a folder named python (important that its named this way!!):
+mkdir python
+cd python
+
+2. pip install all your required packages in that folder (also important):
+pip install -t .
+
+3. zip the entire folder and keep the name
+
+4. go to aws -> lambda -> functions -> layers -> add new layer -> create layer.  and upload your zip file
+
+5. go back to the lambda and add the folder as a layer

@@ -3,10 +3,18 @@ Constants used throughout the other files.
 """
 
 # aws keys
+
+
+# aws consts
+# Set this to 'true' if this code is running in a lambda function on aws
+aws = False
+bucket_name = "financialnewssentimentsmodel"
+prediction_table_name = "StockPredictions"
 aws_key_filename = 'aws_keys.txt'
-with open(aws_key_filename, 'r') as f:
-    aws_access_key_id = f.readline()
-    aws_secret_access_key = f.readline()
+if not aws:
+    with open(aws_key_filename, 'r') as f:
+        aws_access_key_id = f.readline().strip()
+        aws_secret_access_key = f.readline().strip()
 
 # online data sources
 price_data_source = "https://www.alphavantage.co/query"
@@ -51,3 +59,4 @@ default_XGboost_params = {'n_estimators': 1000, 'early_stopping_rounds': 200,
                           'eval_metric': 'rmse', 'learning_rate': 0.1, 'max_depth': 10,
                           'subsample': 0.8, 'colsample_bytree': 0.8, 'random_state': 42}
 optuna_optimization_trials = 100
+test_months = 3
