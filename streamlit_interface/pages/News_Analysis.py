@@ -50,9 +50,9 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
                WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
             """ if all_time else """SELECT * FROM Sentiments"""
     # Query the database and load results into a pandas dataframe
-    dataframe = pd.read_sql_query(query, connection)
+    dataframe = pd.read_sql_query(query, connection, parse_dates=['time_published'])
     connection.close()
-    dataframe['time_published'] = pd.to_datetime(dataframe['time_published'])
+    # dataframe['time_published'] = pd.to_datetime(dataframe['time_published'])
     dataframe = dataframe.set_index('time_published').sort_index(ascending=False)
     return dataframe
 
