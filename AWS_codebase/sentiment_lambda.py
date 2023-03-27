@@ -1,41 +1,13 @@
 import json
-import boto3
 from datetime import datetime, timedelta
 import random
 import string
 import urllib3
 import time
-
-def lambda_handler(event, context):
-    sentiment_list = []
-    # get the time range
-    time_to = datetime.now().strftime('%Y%m%dT%H%M')
-    time_from = (datetime.now() - timedelta(minutes=30)).strftime('%Y%m%dT%H%M')
-    # get the news sentiment for the past week
-    sentiments = get_sentiments(news_topic='financial_markets', time_from=time_from, time_to=time_to)
-    if sentiments is None: return {'statusCode': 41, 'body': "failed to read from alphavantage!"}
-    
-    # add a new row according to: Stock, Date, Sentiment, Site, URL
-    for article in sentiments["feed"]:
-        def make_dict_from_sents(sents):
-            sents['Stock'] = sents['ticker']
-            sents.pop('ticker')
-            sents['url'] = article['url']
-            sents['source'] = article['source']
-            sents['Date'] = article['time_published']
-            return sents
-        # append the sentiment to the list
-        sentiment_list.extend([make_dict_from_sents(tickers_sents) for tickers_sents in article['ticker_sentiment']])
-    
-    # print(sentiment_list)
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('StockSentiment')
-    # print('number of articles: ', len(sentiment_list))
-    with table.batch_writer() as batch:
-        for row in sentiment_list:
-            batch.put_item(Item=row)
-    
-    return {'statusCode': 200, 'body': "success!"}
+import pandas as pd
+import pymysql
+from sqlalchemy import create_engine
+import os
 
 
 def get_sentiments(company_symbol='', news_topic='', time_from='', time_to='', sort_by='LATEST'):
@@ -63,3 +35,47 @@ def get_sentiments(company_symbol='', news_topic='', time_from='', time_to='', s
         else: 
             return
     return data
+
+
+def lambda_handler(event, context):
+    #-------------------------------------------- GET RECENT NEWS SENTIMENT --------------------------------------------#
+    sentiment_list = []
+    # get the time range
+    time_to = datetime.now().strftime('%Y%m%dT%H%M')
+    time_from = (datetime.now() - timedelta(minutes=300)).strftime('%Y%m%dT%H%M')
+    # get the news sentiment for the past week
+    sentiments = get_sentiments(news_topic='financial_markets', time_from=time_from, time_to=time_to)
+
+    # add a new row according to: Stock, Date, Sentiment, Site, URL
+    for article in sentiments["feed"]:
+        def make_dict_from_sents(sents):
+            sents['article_url'] = article['url']
+            sents['source'] = article['source']
+            sents['time_published'] = article['time_published']
+            return sents
+        # append the sentiment to the list
+        sentiment_list.extend([make_dict_from_sents(tickers_sents) for tickers_sents in article['ticker_sentiment']])
+
+    #-------------------------------------------- CONVERT TO DATAFRAME ------------------------------------------------#
+    sentiment_df = pd.DataFrame(sentiment_list)
+    # change column names to match RDS table
+    sentiment_df.rename(columns={'ticker': 'stock', 'ticker_sentiment_score': 'sentiment', 'ticker_sentiment_label': 'sentiment_label', 'url': 'article_url'}, inplace=True)
+    # convert Date column to datetime
+    sentiment_df['time_published'] = pd.to_datetime(sentiment_df['time_published'])
+    sentiment_df
+
+    #-------------------------------------------- WRITE TO DATABASE ---------------------------------------------------#
+    url, username, password = os.environ['URL'], os.environ['ID'], os.environ['PASS']
+    # Establish connection to the MySQL database
+    conn = pymysql.connect(host=url, user=username, password=password, db='stock_data')
+    # Create a SQLAlchemy engine object
+    engine = create_engine(f'mysql+pymysql://{username}:{password}@{url}/stock_data', echo=False)
+    # Convert the pandas DataFrame to a MySQL table
+    sentiment_df.to_sql(name='Sentiments', con=engine, if_exists='replace', index=False)
+    # Close the connection
+    conn.close()
+
+    return {'statusCode': 200, 'body': "success!"}
+
+
+

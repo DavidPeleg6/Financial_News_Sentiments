@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd # REMOVE THIS LATER, YOU'RE NOT SUPPOSED TO DIRECTLY USE THAT HERE
+import pandas as pd 
 import os
 import boto3
 from boto3.dynamodb.conditions import Key
