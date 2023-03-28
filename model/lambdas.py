@@ -8,7 +8,7 @@ Each is also encased in these big lines to signify the points between them
 import json, boto3, pymysql
 import pandas as pd
 import xgboost as xgb
-import datetime, io
+import datetime, io, os
 from boto3.dynamodb.conditions import Key, Attr
 
 def lambda_handler(event, context):
@@ -46,7 +46,7 @@ def lambda_handler(event, context):
             'body': stock_prices.to_json()
         }
     # make predictions for the data using the model
-    pred = model.predict(stock_prices.drop(['close'])) # TODO: drop adjusted close too
+    pred = model.predict(stock_prices.drop(['close']))
     return {
             'statusCode': 200,
             'body': pred.to_json()
@@ -70,27 +70,29 @@ def get_model(token: str) -> xgb.XGBRegressor:
         return None
     return model
 
-# TODO: WHAT ARE ALL OF THESE (wait for info from dudu)
-_rds_host = "????"
-_rds_name = "????"
-_rds_pass = "????"
-_rds_db = "stockdata"
-_rds_table = "????"
-_columns = ["???", "????"]
-
 def get_data(token: str, start: datetime.date, end: datetime.date) -> pd.DataFrame:
     # loads and returns data from an RDS database for the date range given
     # returns an empty df if it fails
+    start_s = start.strftime('%Y-%m-%d')
+    end_s = end.strftime('%Y-%m-%d')
     try:
-        conn = pymysql.connect(_rds_host, user=_rds_name, passwd=_rds_pass, db=_rds_db, connect_timeout=5)
+        connection = pymysql.connect(
+            host = os.environ['rds_host'],
+            user = os.environ['rds_name'],
+            passwd=os.environ['rds_pass'],
+            db  =  os.environ['rds_db']
+            )
         # Execute SQL query
-        with conn.cursor() as cur:
-            cur.execute(f"SELECT * FROM {_rds_table}") 
-            rows = cur.fetchall()
-        # Close database connection
-        conn.close()
-        # Convert query result to Pandas DataFrame
-        df = pd.DataFrame(rows, columns=_columns)
+        query = f"""SELECT *
+                FROM Prices
+                WHERE Date BETWEEN '{start_s}' AND '{end_s}'
+                AND Stock = '{str.upper(token)}';"""
+        data = pd.read_sql_query(query, connection, parse_dates=['Date'])
+        connection.close()
+        # convert the data to a pandas dataframe and drop the stock column
+        df = pd.DataFrame(data).drop(columns=['Stock'], errors='ignore')
+        df = df.set_index('Date')
+        df = df.sort_index(ascending=False)
     except Exception as e:
         print("Error:\t" + str(e))
         df = pd.DataFrame()
