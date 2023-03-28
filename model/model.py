@@ -79,7 +79,8 @@ def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
         df.to_csv(filename, index=False)
 
 
-def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True, test_months: int = consts.test_months,
+def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True,
+              test_months: int = consts.test_months, gattai: bool = True,
               print_acc: bool = False, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> xgb.XGBRegressor:
     """
     Parameters:
@@ -101,7 +102,10 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     If for whatever reason model creation fails, None is returned
     """
     if df.empty:
-        df_copy = offline_data.load_gattai(token)
+        if gattai:
+            df_copy = offline_data.load_gattai(token)
+        else:
+            df_copy = offline_data.load_daily_price(token)
     else:
         df_copy = df.copy()
     if df_copy.empty:
@@ -152,7 +156,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             
             # Train the model
             model = xgb.XGBRegressor(**params)
-            model.fit(X_train, y_train, verbose=False, feature_names = X_train.columns)
+            model.fit(X_train, y_train, verbose=False)
             # Evaluate the model on the testation set
             y_pred = model.predict(X_test)
             error = mean_squared_error(y_test, y_pred, squared=False)
@@ -163,8 +167,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
         model = xgb.XGBRegressor(**study.best_params)
     else:
         model = xgb.XGBRegressor(**consts.default_XGboost_params)
-    model.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)], 
-              verbose=False, feature_names = X_train.columns)
+    model.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)], verbose=False)
     new_RMSE = np.sqrt(mean_squared_error(y_test, model.predict(X_test)))
     if print_acc:
         print(f'{token}\tmodel RMSE:\t{new_RMSE:.4f}')
@@ -185,7 +188,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             _save_model_info(token, new_RMSE, test_months, optimize)
     return model
 
-def generate_models(token_list: list, optimize: bool = True, test_months: int = 3,
+def generate_models(token_list: list, optimize: bool = True, test_months: int = 3, gattai: bool = True,
                     progress_bar: bool = True, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> int:
     """
     Generates a model for each token in 'token_list' and saves them to the models folder
@@ -201,7 +204,7 @@ def generate_models(token_list: list, optimize: bool = True, test_months: int = 
         if progress_bar:
             iter += 1
             _printProgressBar(iteration = iter, total = total, prefix="Generating models.", suffix=token)
-        model = new_model(token = token, optimize = optimize,
+        model = new_model(token = token, optimize = optimize, gattai=gattai,
                           test_months = test_months, overwrite_mode = overwrite_mode)
         if model != None:
             sucsssusfull += 1
@@ -231,7 +234,7 @@ def load_model(token: str) -> xgb.XGBRegressor:
         print("Model creation failed for " + token)
     return loaded_model
 
-def predict_tomorrow(tokens: list, date: datetime.date) -> pd.DataFrame:
+def predict_tomorrow(tokens: list, date: datetime.date, gattai: bool = True,) -> pd.DataFrame:
     """
     ___ not used anymore, the implementation on aws is completly different 
 
@@ -251,14 +254,17 @@ def predict_tomorrow(tokens: list, date: datetime.date) -> pd.DataFrame:
                             'prediction': None,
                             'model_RMSE': _get_RMSE(token)}, ignore_index=True)
         else:
-            data = offline_data.load_gattai(token)
+            if gattai:
+                data = offline_data.load_gattai(token)
+            else:
+                data = offline_data.load_daily_price(token)
             pred = model.predict(data.loc[data.loc[date]])
             df = df.append({'token': token,
                             'prediction': pred,
                             'model_RMSE': _get_RMSE(token)}, ignore_index=True)
     return df
 
-def write_predictions_to_DDB(tokens: list,
+def write_predictions_to_DDB(tokens: list, gattai: bool = True,
         start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=30*consts.test_months), 
                       end: datetime.date = datetime.datetime.now().date(), progress_bar: bool = True):
     """
@@ -284,7 +290,10 @@ def write_predictions_to_DDB(tokens: list,
             print("Failed to load model for " + token)
             continue
         # get data
-        df = offline_data.load_gattai(token)
+        if gattai:
+            df = offline_data.load_gattai(token)
+        else:
+            df = offline_data.load_daily_price(token)
         if df.empty:
             df = offline_data.load_daily_price(token)
             if df.empty:
