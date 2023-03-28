@@ -4,18 +4,11 @@ import os
 import plotly.express as px
 from pages.Stock_Data import getPastStockPrices, convert_column_names
 from typing import Dict
-import xgboost as xgb
+import datetime
 import requests
-import random
-import string
-import time
-from enum import Enum
 
 _default_stonk = 'MSFT'
-
-class data_sources(Enum):
-    AWS = 1 # Amazon Web services (RDS)
-    AlphaVantage = 2 # AlpahVantage
+_pred_days = 60 # days back from today to try and predict
 
 # set to wide mode
 st.set_page_config(layout="wide")
@@ -35,6 +28,42 @@ try:
 except FileNotFoundError:
     st.session_state.OFFLINE = False
 
+# no cache here because getPastStockPrices is already cached
+def get_stockprice(token: str = _default_stonk) -> pd.DataFrame:
+    # return a dataframe of the stock price
+    # if it fails, it returns an empty dataframe
+    try:
+        df = getPastStockPrices(st.session_state.stock_refresh, token)
+    except:
+        df = pd.DataFrame()
+    return df
+
+@st.cache_data(ttl=60*60*24)
+def get_prediction(token: str,
+                   start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
+                      end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
+    # get stock predictions from aws by invoking the lambda function called 'model_get_predictions'
+    # returns an empty dataframe if it fails
+    url = os.environ['model_get_predictions_url'] # TODO: set this as an env var
+    start_s = start.strftime('%Y-%m-%d')
+    end_s = end.strftime('%Y-%m-%d')
+    data = {
+        'token': token,
+        'start': start_s,
+        'end': end_s
+    }
+    # Send POST request to API Gateway endpoint
+    response = requests.post(url, json=data)
+    if response.status_code == 200:
+        # Parse JSON response and convert to Pandas DataFrame
+        df = pd.read_json(response.content)
+        # Return the DataFrame
+        return df
+    else:
+        # Print error message and return None
+        print('Error:', response.content)
+        return pd.DataFrame()
+
 st.title('Financial Stock Recommendation System')
 
 st.write('This is a stock recommendation system that uses a combination of machine learning and news sentiment analysis to recommend stocks to buy.')
@@ -44,40 +73,6 @@ time_step_options = ('Daily', 'Weekly', 'Monthly')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30}
 if 'recomm_refresh' not in st.session_state:
     st.session_state.recomm_refresh = 0
-
-def get_stockprice(token: str = _default_stonk, 
-                   data_source: data_sources = data_sources.AlphaVantage) -> pd.DataFrame:
-    # return a dataframe of the stock price
-    # if it fails, it returns an empty dataframe
-    if data_source == data_sources.AlphaVantage:
-        endpoint = "https://www.alphavantage.co/query"
-        parameters = {
-            "function": "TIME_SERIES_DAILY_ADJUSTED",
-            "symbol": token,
-            "outputsize": 'full'
-        }
-        for _ in range(100):
-            parameters['apikey'] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=15))
-            # Send a GET request to the API endpoint
-            response = requests.get(endpoint, params=parameters)
-            # Check if the request was successful
-            if response.status_code == 200 and 'Note' not in response.json():
-                # TODO: convert this to a dataframe
-                return response.json()
-            else:
-                time.sleep(1)
-        return pd.DataFrame
-    elif data_source == data_sources.AWS:
-        # TODO: replace this with a call to RDS
-        return getPastStockPrices(st.session_state.stock_refresh, token)
-    else:
-        # what
-        return pd.DataFrame
-
-@st.cache_data(ttl=60*60*24)
-def get_prediction(stock: str) -> pd.DataFrame:
-    # TODO: implement
-    print("implement")
 
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = _default_stonk)
 stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)

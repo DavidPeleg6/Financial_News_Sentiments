@@ -98,3 +98,8 @@ def get_data(token: str, start: datetime.date, end: datetime.date) -> pd.DataFra
         df = pd.DataFrame()
     return df
 # ----------------------------------------------------------------------------------------------------------
+# model_retrain
+# TODO: implement, this function should run once a month and retrain all of the models using the latest data
+# TODO (part 2): it should ALWAYS replace the originals, coz it's more recent
+# TODO (part 3): maybe don't do this in a lambda function? it'll take a really long time to exectue
+# TODO (part 4): maybe just do this offline on your own sometimes, servers are expensive
