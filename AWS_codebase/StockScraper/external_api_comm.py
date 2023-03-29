@@ -11,7 +11,7 @@ def get_stockprice(company_symbol: str = 'MSFT'):
     parameters = {
         "function": "TIME_SERIES_DAILY_ADJUSTED",
         "symbol": company_symbol,
-        "outputsize": 'full'
+        "outputsize": 'compact'
     }
     for _ in range(100):
         parameters['apikey'] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=15))

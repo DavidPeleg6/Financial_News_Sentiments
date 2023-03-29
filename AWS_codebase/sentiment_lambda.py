@@ -58,24 +58,28 @@ def lambda_handler(event, context):
         sentiment_list.extend([make_dict_from_sents(tickers_sents) for tickers_sents in article['ticker_sentiment']])
 
     #-------------------------------------------- CONVERT TO DATAFRAME ------------------------------------------------#
-    sentiment_df = pd.DataFrame(sentiment_list)
-    # change column names to match RDS table
-    sentiment_df.rename(columns={'ticker': 'stock', 'ticker_sentiment_score': 'sentiment', 'ticker_sentiment_label': 'sentiment_label', 'url': 'article_url'}, inplace=True)
+    sentiment_df = pd.DataFrame(sentiment_list).rename(columns={'ticker': 'stock', 'ticker_sentiment_score': 'sentiment', 'ticker_sentiment_label': 'sentiment_label', 'url': 'article_url'})
     # convert Date column to datetime
     sentiment_df['time_published'] = pd.to_datetime(sentiment_df['time_published'])
-    sentiment_df
+    sentiment_df = sentiment_df.set_index(['time_published','stock'])
 
     #-------------------------------------------- WRITE TO DATABASE ---------------------------------------------------#
+    dtypes = {'time_published': sqlalchemy.types.DATETIME, 'relevance_score': sqlalchemy.types.DECIMAL(6,5), 'sentiment': sqlalchemy.types.DECIMAL(6,5),
+                                'stock': sqlalchemy.types.VARCHAR(10), 'sentiment_label': sqlalchemy.types.VARCHAR(10), 'article_url': sqlalchemy.types.VARCHAR(200), 'source': sqlalchemy.types.VARCHAR(50)}
     url, username, password = os.environ['URL'], os.environ['ID'], os.environ['PASS']
     # Establish connection to the MySQL database
     conn = pymysql.connect(host=url, user=username, password=password, db='stock_data')
     # Create a SQLAlchemy engine object
     engine = create_engine(f'mysql+pymysql://{username}:{password}@{url}/stock_data', echo=False)
-    # Convert the pandas DataFrame to a MySQL table
-    sentiment_df.to_sql(name='Sentiments', con=engine, if_exists='append', index=False, dtype={'time_published': sqlalchemy.types.DATETIME})
+    for i in range(len(sentiment_df)):
+        try:
+            sentiment_df.iloc[i:i+1].to_sql(name='Sentiments', con=engine, if_exists='append', index=True, index_label=['time_published', 'stock'], dtype=dtypes)
+        except Exception as e:
+            # print(sentiment_df.iloc[i:i+1])
+            pass
     # Close the connection
     conn.close()
-
+    
     return {'statusCode': 200, 'body': "success!"}
 
 
