@@ -1,6 +1,5 @@
 """
 Function for creating, saving, and loading predictive models
-TODO: currently this code is limited to xgboost models, generalize it later
 """
 
 import pandas as pd
@@ -20,8 +19,6 @@ class overwrite_modes(Enum):
     NEVER = 1
     BETTER = 2
     ALWAYS = 3
-
-# TODO: refit this code to run on AWS. models go in S3 and data goes in dynamoDB
 
 def _printProgressBar(iteration: int, total: int, prefix: str = '', suffix: str = '',
                       decimals: int = 1, length: int = 100, fill: str = '█', printEnd: str = "\r"):
@@ -82,7 +79,8 @@ def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
         df.to_csv(filename, index=False)
 
 
-def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True, test_months: int = consts.test_months,
+def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True,
+              test_months: int = consts.test_months, gattai: bool = True,
               print_acc: bool = False, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> xgb.XGBRegressor:
     """
     Parameters:
@@ -104,7 +102,10 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     If for whatever reason model creation fails, None is returned
     """
     if df.empty:
-        df_copy = offline_data.load_gattai(token)
+        if gattai:
+            df_copy = offline_data.load_gattai(token)
+        else:
+            df_copy = offline_data.load_daily_price(token)
     else:
         df_copy = df.copy()
     if df_copy.empty:
@@ -129,8 +130,10 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     test_df_copy =  df_copy[df_copy.index >= df_copy.index.max() - pd.DateOffset(months=test_months)]
 
     # split to X and y
-    X_train, y_train = train_df_copy.drop(columns=['close']), train_df_copy['close']
-    X_test, y_test = test_df_copy.drop(columns=['close']), test_df_copy['close']
+    tar_col = ['close']
+    leak_col = [] # ain't any, it can stay
+    X_train, y_train = train_df_copy.drop(columns=tar_col + leak_col), train_df_copy[tar_col]
+    X_test, y_test = test_df_copy.drop(columns=tar_col + leak_col), test_df_copy[tar_col]
 
     if optimize:
         def _objective(trial):
@@ -153,11 +156,12 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             
             # Train the model
             model = xgb.XGBRegressor(**params)
-            model.fit(X_train, y_train)
+            model.fit(X_train, y_train, verbose=False)
             # Evaluate the model on the testation set
             y_pred = model.predict(X_test)
             error = mean_squared_error(y_test, y_pred, squared=False)
             return error
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
         study = optuna.create_study(direction='minimize')
         study.optimize(_objective, n_trials=consts.optuna_optimization_trials)
         model = xgb.XGBRegressor(**study.best_params)
@@ -170,7 +174,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     # now that we have the RMSE over the test data, we can retrain the model over ALL data
     # can't do early stopping without a validation set, so nvm
     # X_final, y_final = df_copy.drop(columns=['close']), df_copy['close']
-    # model.fit(X_final, y_final, verbose=False)
+    # model.fit(X_final, y_final, verbose=False, feature_names = X_train.columns)
     filename = f"{consts.folders['model']}/{token}.bin"
     existing_RMSE = _get_RMSE(token)
     should_save = overwrite_mode == overwrite_modes.ALWAYS or existing_RMSE == -1 or new_RMSE < existing_RMSE
@@ -184,7 +188,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             _save_model_info(token, new_RMSE, test_months, optimize)
     return model
 
-def generate_models(token_list: list, optimize: bool = True, test_months: int = 3,
+def generate_models(token_list: list, optimize: bool = True, test_months: int = 3, gattai: bool = True,
                     progress_bar: bool = True, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> int:
     """
     Generates a model for each token in 'token_list' and saves them to the models folder
@@ -200,7 +204,7 @@ def generate_models(token_list: list, optimize: bool = True, test_months: int = 
         if progress_bar:
             iter += 1
             _printProgressBar(iteration = iter, total = total, prefix="Generating models.", suffix=token)
-        model = new_model(token = token, optimize = optimize,
+        model = new_model(token = token, optimize = optimize, gattai=gattai,
                           test_months = test_months, overwrite_mode = overwrite_mode)
         if model != None:
             sucsssusfull += 1
@@ -230,11 +234,13 @@ def load_model(token: str) -> xgb.XGBRegressor:
         print("Model creation failed for " + token)
     return loaded_model
 
-def predict_tomorrow(tokens: list, date: datetime.date) -> pd.DataFrame:
+def predict_tomorrow(tokens: list, date: datetime.date, gattai: bool = True,) -> pd.DataFrame:
     """
+    ___ not used anymore, the implementation on aws is completly different 
+
     Predicts the closing prices of the stocks in 'tokens' for the day AFTER 'date'.
     Returns the prediction as a dataframe structured as follows:
-    token, prediction, model_RMSE, TODO: add more data here?
+    token, prediction, model_RMSE
     If prediction fails for a token, the corresponding entry will map be a None
 
     Note that if any of the requiered data doesn't exist yet (model, stock price data, etc)
@@ -248,26 +254,28 @@ def predict_tomorrow(tokens: list, date: datetime.date) -> pd.DataFrame:
                             'prediction': None,
                             'model_RMSE': _get_RMSE(token)}, ignore_index=True)
         else:
-            # TODO: make it load the data from another source?
-            data = offline_data.load_gattai(token)
+            if gattai:
+                data = offline_data.load_gattai(token)
+            else:
+                data = offline_data.load_daily_price(token)
             pred = model.predict(data.loc[data.loc[date]])
             df = df.append({'token': token,
                             'prediction': pred,
                             'model_RMSE': _get_RMSE(token)}, ignore_index=True)
     return df
 
-def write_predictions_to_DDB(tokens: list,
+def write_predictions_to_DDB(tokens: list, gattai: bool = True,
         start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=30*consts.test_months), 
                       end: datetime.date = datetime.datetime.now().date(), progress_bar: bool = True):
     """
+    ___ not used anywere, we're switching to RDS
+
     produces predictions for each token in 'tokens' for the dates between 'start' and 'end'
     writes all of those predictions to the table in dynamoDB called 'consts.prediction_table_name'
 
     DON'T RUN THIS FUNCTION MORE THAN ONCE FOR THE SAME STOCKS AND DATES
     IT DOESN'T CHECK IF THE DATA ALREADY EXISTS
     DOING SO WILL GENERATE DUPLICATE DATA
-
-    TODO: make a function that checks for and deletes duplicate data because that will definitely happen
     """
     succsuss_count = 0
     iter = 0
@@ -282,7 +290,10 @@ def write_predictions_to_DDB(tokens: list,
             print("Failed to load model for " + token)
             continue
         # get data
-        df = offline_data.load_gattai(token)
+        if gattai:
+            df = offline_data.load_gattai(token)
+        else:
+            df = offline_data.load_daily_price(token)
         if df.empty:
             df = offline_data.load_daily_price(token)
             if df.empty:
@@ -306,21 +317,24 @@ def write_predictions_to_DDB(tokens: list,
             print("Error is:\t" + str(e))
             continue
         # iterate over the rows
-        for index, row in pred_df.iterrows():
-            row_dict = row.to_dict()
-            convdict = {
-                'Date': {'S': row_dict['Date']},
-                'Stock': {'S': row_dict['Stock']},
-                'Close': {'N': str(row_dict['Close'])}
-            }
-            # upload to dynamoDB
-            if not write_to_DDB(consts.prediction_table_name, convdict):
-                print("Failed to upload for " + token)
-                continue
-            if progress_bar:
-                _printProgressBar(iteration = iter, total = total, prefix=token, suffix=f"{index}/{len(pred_df)}")
+        try:
+            for index, row in pred_df.iterrows():
+                row_dict = row.to_dict()
+                convdict = {
+                    'Date': {'S': row_dict['Date']},
+                    'Stock': {'S': row_dict['Stock']},
+                    'Close': {'N': str(row_dict['Close'])}
+                }
+                # upload to dynamoDB
+                if not write_to_DDB(consts.prediction_table_name, convdict):
+                    print("Failed to upload for " + token)
+                    continue
+                if progress_bar:
+                    _printProgressBar(iteration = iter, total = total, prefix=token, suffix=f"{index}/{len(pred_df)}")
+        except Exception as e:
+            print("Unknown error when trying to process " + token)
+            print("Error msg:\t" + str(e))
+            continue
         succsuss_count += 1
     if progress_bar:
         print(f"Completed predictioning for {succsuss_count}/{total} tokens.")
-
-# TODO: make a functions that creates predictions ONLY for dates that haven't been predicted already
