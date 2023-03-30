@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-from dataLoader import getSentimentData
+from ..dataLoader import getSentimentData
 # from sqlalchemy import create_engine
 
 

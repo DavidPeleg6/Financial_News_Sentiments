@@ -2,11 +2,11 @@ import streamlit as st
 import pandas as pd
 import os
 import plotly.express as px
-from dataLoader import getPastStockPrices, convert_column_names, get_predictions
 from typing import Dict
 
+from ..dataLoader import getPastStockPrices, convert_column_names, get_predictions
+
 _default_stonk = 'MSFT'
-_pred_days = 60 # days back from today to try and predict
 
 # set to wide mode
 st.set_page_config(layout="wide")
@@ -17,8 +17,6 @@ if refresh_stocks:
 # try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
 try:
     DB_ACCESS_KEY = pd.read_csv('DB_ACCESS_KEY.csv')
-    # TODO ADD the flag update of offline here
-    # _OFFLINE_DATA = True
     # set the environment variable
     os.environ['DB_ACCESS_KEY'] = DB_ACCESS_KEY['Access key ID'][0]
     os.environ['DB_SECRET_KEY'] = DB_ACCESS_KEY['Secret access key'][0]
