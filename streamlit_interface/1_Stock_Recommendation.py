@@ -2,10 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 import plotly.express as px
-from pages.Stock_Data import getPastStockPrices, convert_column_names
+from dataLoader import getPastStockPrices, convert_column_names, get_predictions
 from typing import Dict
-import datetime
-import requests
 
 _default_stonk = 'MSFT'
 _pred_days = 60 # days back from today to try and predict
@@ -28,42 +26,6 @@ try:
 except FileNotFoundError:
     st.session_state.OFFLINE = False
 
-# no cache here because getPastStockPrices is already cached
-def get_stockprice(token: str = _default_stonk) -> pd.DataFrame:
-    # return a dataframe of the stock price
-    # if it fails, it returns an empty dataframe
-    try:
-        df = getPastStockPrices(st.session_state.stock_refresh, token)
-    except:
-        df = pd.DataFrame()
-    return df
-
-@st.cache_data(ttl=60*60*24)
-def get_prediction(token: str,
-                   start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
-                      end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
-    # get stock predictions from aws by invoking the lambda function called 'model_get_predictions'
-    # returns an empty dataframe if it fails
-    url = os.environ['model_get_predictions_url'] # TODO: set this as an env var
-    start_s = start.strftime('%Y-%m-%d')
-    end_s = end.strftime('%Y-%m-%d')
-    data = {
-        'token': token,
-        'start': start_s,
-        'end': end_s
-    }
-    # Send POST request to API Gateway endpoint
-    response = requests.post(url, json=data)
-    if response.status_code == 200:
-        # Parse JSON response and convert to Pandas DataFrame
-        df = pd.read_json(response.content)
-        # Return the DataFrame
-        return df
-    else:
-        # Print error message and return None
-        print('Error:', response.content)
-        return pd.DataFrame()
-
 st.title('Financial Stock Recommendation System')
 
 st.write('This is a stock recommendation system that uses a combination of machine learning and news sentiment analysis to recommend stocks to buy.')
@@ -79,7 +41,7 @@ stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)
 if not stock_data.empty:
     # get datas
     stock_data = convert_column_names(stock_data)
-    predictions = get_prediction(stock_ticker)
+    predictions = get_predictions(stock_ticker)
     # convert all the columns to floats except for the index column
     stock_data = stock_data.astype(float)
     predictions = predictions.astype(float)

@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-import pymysql
-from sqlalchemy import create_engine
+from dataLoader import getSentimentData
+# from sqlalchemy import create_engine
 
 
 time_step_options = ('Daily', 'Weekly', 'Monthly', 'All Time')
@@ -22,40 +22,6 @@ except FileNotFoundError:
     st.session_state.OFFLINE = False
 
 st.session_state.OFFLINE = False
-
-@st.cache_data(ttl=60*60*24)
-def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
-    """
-    returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
-    the dataframe has the following columns:
-    Date, ticker_sentiment_score, ticker_sentiment_label, Stock, source, url, relevance_score
-    :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
-    :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
-    """
-    if st.session_state.OFFLINE:
-        sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
-        sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
-        return sentiment_data
-    
-    # Connect to the database
-    connection = pymysql.connect(
-        host=os.environ['URL'],
-        user=os.environ['ID'],
-        passwd=os.environ['PASS'],
-        db="stock_data"
-    )
-    # get data from the past month unless specified to take the entire dataframe
-    query = """SELECT *
-               FROM Sentiments
-               WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
-            """ if all_time else """SELECT * FROM Sentiments"""
-    # Query the database and load results into a pandas dataframe
-    dataframe = pd.read_sql_query(query, connection, parse_dates=['time_published'])
-    connection.close()
-    # dataframe['time_published'] = pd.to_datetime(dataframe['time_published'])
-    dataframe = dataframe.set_index('time_published').sort_index(ascending=False)
-    return dataframe
-
 
 refresh_sentiments = st.button('Refresh')
 if refresh_sentiments:
