@@ -3,7 +3,14 @@ import pandas as pd
 import os
 import plotly.express as px
 
-from ..dataLoader import getPastStockPrices, convert_column_names
+
+import sys
+ 
+# setting path
+sys.path.append('../streamlit_interface')
+ 
+# importing
+from streamlit_interface.dataLoader import getPastStockPrices, convert_column_names
 
 if 'stock_refresh' not in st.session_state:
     st.session_state.stock_refresh = 0
