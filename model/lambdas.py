@@ -4,19 +4,17 @@ Each function is preceded by all of the imports that it has on aws, even if it a
 Each is also encased in these big lines to signify the points between them
 """
 # ----------------------------------------------------------------------------------------------------------
-# model_get_predictions
-import json, boto3, pymysql
-import pandas as pd
-import xgboost as xgb
-import datetime, io, os
-from boto3.dynamodb.conditions import Key, Attr
-
 def lambda_handler(event, context):
     """
     Gets a token name and a range of dates as input
     Returns the predictions for those dates as a dictionary
 
     """
+    import json, boto3, pymysql
+    import pandas as pd
+    import datetime, io, os
+    from boto3.dynamodb.conditions import Key, Attr
+    import xgboost as xgb
     # parse input
     token = event.get('token', '')
     start_s = event.get('start', '')
@@ -97,9 +95,5 @@ def get_data(token: str, start: datetime.date, end: datetime.date) -> pd.DataFra
         print("Error:\t" + str(e))
         df = pd.DataFrame()
     return df
+
 # ----------------------------------------------------------------------------------------------------------
-# model_retrain
-# TODO: implement, this function should run once a month and retrain all of the models using the latest data
-# TODO (part 2): it should ALWAYS replace the originals, coz it's more recent
-# TODO (part 3): maybe don't do this in a lambda function? it'll take a really long time to exectue
-# TODO (part 4): maybe just do this offline on your own sometimes, servers are expensive
