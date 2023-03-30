@@ -5,7 +5,7 @@ dudu_github = "https://github.com/DavidPeleg6"
 avihai_linkedin = "https://www.linkedin.com/in/avihai-didi-ba47a6224/"
 avihai_github = "https://github.com/AvihaiDidi"
 
-st.header("Stock analasys and recomendation platfor")
+st.header("Stock analysis and recomendation platfor")
 st.subheader("Developed by David Peleg and Avihai Didi, 2023")
 
 st.write(f"David Peleg [github]({dudu_github}), [linkedin]({dudu_linkedin})")
