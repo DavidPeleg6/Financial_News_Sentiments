@@ -1,13 +1,37 @@
-in order to add python packages to your lambdas:
+** in order to add python packages to your lambdas:
 1. create a folder named python (important that its named this way!!):
 mkdir python
 cd python
 
 2. pip install all your required packages in that folder (also important):
-pip install -t .
+pip install <package> -t .
 
 3. zip the entire folder and keep the name
 
 4. go to aws -> lambda -> functions -> layers -> add new layer -> create layer.  and upload your zip file
 
 5. go back to the lambda and add the folder as a layer
+
+
+** connecting to efs. also useful for creating a work env for lambdas:
+
+1. create the efs interface and make sure the fields are: 1000,1000,1000,1000,777 - so that you can get write permissions from anywhere
+
+2. change the root directory path to /mnt/efs1
+
+3. assign security groups that can read and write from anywhere (TODO CHANGE THIS!!)
+
+4. create access point with same SG and same root dir
+
+5. create a EC2 instance and connect to the EFS:
+	a. follow directions here to download the tools necessary https://docs.aws.amazon.com/efs/latest/ug/installing-amazon-efs-utils.html
+	b. create a dir called efs
+	c. go to the access point's page (the one you just created) and click on the <attach> button on the top left. 
+	d. copy the command and paste in your EC2 - you are now connected to the efs
+
+6. create a dir called python in the EC2 (in the efs folder) and install all your packages into there
+	pip install <package> -t /root/efs/python
+
+7. go to the lambda you created and go into configuration -> file systems -> add file system. and add the access point you previously added
+
+8. go to configuration -> environment variables and add an environment variable called python path: PYTHONPATH=${PYTHONPATH}:/mnt/efs1/python

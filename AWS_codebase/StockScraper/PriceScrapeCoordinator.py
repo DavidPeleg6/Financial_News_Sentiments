@@ -1,36 +1,35 @@
 import pandas as pd
-import boto3
 import json
-# import time
-# from tqdm import tqdm
+import boto3
+import os
+import pymysql
 
 # The maximum number of stocks to scrape
 MAX_STOCKS = 1000
 
-# define a boto resource in the ohio region
-dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
-table = dynamodb.Table('StockSentiment')
 client = boto3.client('lambda', region_name='us-east-2')
 
 
 def lambda_handler(event, context):
-    # keep scanning until we have all the data in the table
-    response = table.scan()
-    data = response['Items']
-    while 'LastEvaluatedKey' in response:
-        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
-        data.extend(response['Items'])
-    # convert the data to a pandas dataframe
-    sentiment_ticker_list = pd.DataFrame(data)
-    # convert Date column to datetime
-    sentiment_ticker_list['Date'] = pd.to_datetime(sentiment_ticker_list['Date'])
-    # make the index the Date column
-    sentiment_ticker_list = sentiment_ticker_list.set_index('Date').sort_index(ascending=False)
-    # get a list of tickers sorted by frequency, and append googl since theres a bug with alpha vantage
-    sorted_tickers = sentiment_ticker_list['Stock'].value_counts().index.tolist() + ['GOOGL']
-    # remove any stocks that contain crypto or forex and take the first MAX_STOCKS
-    sorted_tickers = [t for t in sorted_tickers if 'crypto' not in t.lower() and 'forex' not in t.lower()][:MAX_STOCKS]
-    
+    # Connect to the database
+    connection = pymysql.connect(
+        host=os.environ['URL'],
+        user=os.environ['ID'],
+        passwd=os.environ['PASS'],
+        db="stock_data"
+    )
+    # get data from the past month unless specified to take the entire dataframe
+    query = """
+            SELECT stock, COUNT(*) AS frequency 
+            FROM Sentiments 
+            GROUP BY stock 
+            ORDER BY frequency DESC;
+            """
+    # Query the database and load results into a pandas dataframe
+    dataframe = pd.read_sql_query(query, connection)
+    connection.close()
+    sorted_tickers = [t for t in dataframe['stock'].to_list() if 'crypto' not in t.lower() and 'forex' not in t.lower()][:MAX_STOCKS]
+        
     for i in range(0, len(sorted_tickers), 5):
         response = client.invoke(
             FunctionName='Collect5stocks',
@@ -39,7 +38,4 @@ def lambda_handler(event, context):
             Payload=json.dumps({'body': sorted_tickers[i:i+5]})
         )
 
-
-# start = time.time()
-# lambda_handler(None, None)
-# print(f'Runtime of the program is {time.time() - start}')
+    return {'statusCode': 200, 'body': 'Success!'}
