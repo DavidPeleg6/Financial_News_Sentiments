@@ -2,7 +2,12 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-from ..dataLoader import getSentimentData
+
+import sys
+ # setting path
+sys.path.append('../streamlit_interface')
+ # importing
+from dataLoader import getSentimentData
 # from sqlalchemy import create_engine
 
 

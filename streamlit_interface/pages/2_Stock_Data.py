@@ -5,11 +5,9 @@ import plotly.express as px
 
 
 import sys
- 
-# setting path
+ # setting path
 sys.path.append('../streamlit_interface')
- 
-# importing
+ # importing
 from dataLoader import getPastStockPrices, convert_column_names
 
 if 'stock_refresh' not in st.session_state:
