@@ -18,7 +18,7 @@ import boto3
 # The maximum number of stocks to scrape
 MAX_STOCKS = 1000
 # the number of days to look back
-TIME_BACK = 5
+TIME_BACK = 6
 # TIME_BACK = 365*2
 
 
