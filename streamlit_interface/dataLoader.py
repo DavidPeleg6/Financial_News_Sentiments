@@ -112,6 +112,8 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
     dataframe = dataframe.set_index('time_published').sort_index(ascending=False)
     return dataframe
 
+_pred_days = 60 # days back from today to try and predict
+
 @st.cache_data(ttl=60*60*24)
 def get_predictions(token: str,
                    start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
