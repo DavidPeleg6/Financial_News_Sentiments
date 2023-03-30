@@ -4,7 +4,7 @@ import os
 import plotly.express as px
 from typing import Dict
 
-from ..dataLoader import getPastStockPrices, convert_column_names, get_predictions
+from dataLoader import getPastStockPrices, convert_column_names, get_predictions
 
 _default_stonk = 'MSFT'
 
