@@ -19,8 +19,8 @@ def lambda_handler(event, context):
     token = event.get('token', '')
     start_s = event.get('start', '')
     end_s = event.get('end', '')
-    start = datetime.strptime(start_s, '%Y-%m-%d')
-    end = datetime.strptime(end_s, '%Y-%m-%d')
+    start = datetime.datetime.strptime(start_s, '%Y-%m-%d').date()
+    end = datetime.datetime.strptime(end_s, '%Y-%m-%d').date()
 
     # get data
     stock_prices = get_data(token, start, end)
@@ -30,10 +30,6 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': stock_prices.to_json()
         }
-    stock_prices.set_index('Date', inplace=True)
-    stock_prices.index = pd.to_datetime(stock_prices.index)
-    # make the index the Date column
-    stock_prices.sort_index(ascending=False, inplace=True)
     
     # get the model
     model = get_model(token)
@@ -81,15 +77,19 @@ def get_data(token: str, start: datetime.date, end: datetime.date) -> pd.DataFra
             db  =  os.environ['rds_db']
             )
         # Execute SQL query
-        query = f"""SELECT *
+        query_old = f"""SELECT *
                 FROM Prices
                 WHERE Date BETWEEN '{start_s}' AND '{end_s}'
                 AND Stock = '{str.upper(token)}';"""
+        query = f"""SELECT *
+                FROM Prices
+                WHERE Stock = '{str.upper(token)}';"""
         data = pd.read_sql_query(query, connection, parse_dates=['Date'])
         connection.close()
         # convert the data to a pandas dataframe and drop the stock column
         df = pd.DataFrame(data).drop(columns=['Stock'], errors='ignore')
         df = df.set_index('Date')
+        df.index = pd.to_datetime(df.index)
         df = df.sort_index(ascending=False)
     except Exception as e:
         print("Error:\t" + str(e))
