@@ -35,7 +35,7 @@ def write_stocks(stock_list):
     df = df.set_index(['Stock','Date'])
 
     #-------------------------------------------- WRITE TO DATABASE ---------------------------------------------------#
-    dtypes = {column_name: sqlalchemy.types.DECIMAL(10,2) for column_name in df.columns if column_name not in ('Date', 'Stock')}
+    dtypes = {column_name: sqlalchemy.types.DECIMAL(15,2) for column_name in df.columns if column_name not in ('Date', 'Stock')}
     dtypes['Date'] = sqlalchemy.types.DATETIME
     dtypes['Stock'] = sqlalchemy.types.VARCHAR(10)
     url, username, password = os.environ['URL'], os.environ['ID'], os.environ['PASS']

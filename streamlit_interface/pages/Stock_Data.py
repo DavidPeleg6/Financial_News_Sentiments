@@ -25,7 +25,7 @@ except FileNotFoundError:
 # st.session_state.OFFLINE = False
 
 @st.cache_data(ttl=60*60*24)
-def getPastStockPrices(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
+def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) -> pd.DataFrame:
     """
     returns a pandas dataframe structured as follows:
     company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
@@ -61,11 +61,9 @@ def getPastStockPrices(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
         passwd=os.environ['PASS'],
         db="stock_data"
     )
-    # TODO make this also run for different intervals chosen by the user
     # get data from the past month unless specified to take the entire dataframe
-    query = f"""SELECT *
-            FROM Prices
-            WHERE Stock = '{str.upper(stock)}';"""
+    query = f"""SELECT * FROM Prices WHERE Stock = '{str.upper(stock)}';""" if alltime else f"""
+            SELECT * FROM Prices Where Stock = '{str.upper(stock)}' and Date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH);"""
     # Query the database and load results into a pandas dataframe
     data = pd.read_sql_query(query, connection, parse_dates=['Date'])
     connection.close()
@@ -103,7 +101,7 @@ if refresh_stocks:
 st.header('Basic Stock Data')
 
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = 'AAPL')
-stock_data = getPastStockPrices(st.session_state.stock_refresh, stock_ticker)
+stock_data = getPastStockPrices(st.session_state.stock_refresh, stock_ticker, alltime=True)
 if not stock_data.empty:
     stock_data = convert_column_names(stock_data)
     # convert all the columns to floats except for the index column
