@@ -5,6 +5,10 @@ import os
 import pymysql
 from sqlalchemy import create_engine
 
+try:
+    st.set_page_config(layout="wide")
+except:
+    pass
 
 time_step_options = ('Daily', 'Weekly', 'Monthly', 'All Time')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30, 'All Time': 365*20}
@@ -17,11 +21,10 @@ try:
     os.environ['ID'] = DB_ACCESS_KEY['ID'][0]
     os.environ['PASS'] = DB_ACCESS_KEY['PASS'][0]
     os.environ['URL'] = DB_ACCESS_KEY['URL'][0]
-    st.session_state.OFFLINE = True
 except FileNotFoundError:
-    st.session_state.OFFLINE = False
+    pass
 
-st.session_state.OFFLINE = False
+# st.session_state.OFFLINE = False
 
 @st.cache_data(ttl=60*60*24)
 def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
@@ -32,10 +35,10 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
     :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
     :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
     """
-    if st.session_state.OFFLINE:
-        sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
-        sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
-        return sentiment_data
+    # if st.session_state.OFFLINE:
+    #     sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
+    #     sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
+    #     return sentiment_data
     
     # Connect to the database
     connection = pymysql.connect(
@@ -48,7 +51,7 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
     query = """SELECT *
                FROM Sentiments
                WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
-            """ if all_time else """SELECT * FROM Sentiments"""
+            """ if not all_time else """SELECT * FROM Sentiments"""
     # Query the database and load results into a pandas dataframe
     dataframe = pd.read_sql_query(query, connection, parse_dates=['time_published'])
     connection.close()
@@ -75,7 +78,7 @@ number_of_stocks = st.slider(
     step = 1, label_visibility='hidden')
 # add another slider but hide min max values
 
-sentiment_ticker_list = getSentimentData(st.session_state.sentiment_refresh, timeframe!='All Time')
+sentiment_ticker_list = getSentimentData(st.session_state.sentiment_refresh, timeframe=='All Time')
 # convert data type to float
 sentiment_ticker_list['sentiment'] = pd.to_numeric(sentiment_ticker_list['sentiment'])
 
@@ -106,9 +109,9 @@ sentiment_over_time = stock_sentiment_data.groupby('time_published')['sentiment'
 st.line_chart(data = sentiment_over_time, use_container_width = True)
 
 # in preperation for the last feature of volume x sentiment, here is the query to be used
-"""SELECT prices.stock_name FROM prices 
-WHERE prices.stock_name IN ('stock1', 'stock2', ...) 
-AND prices.volume > (SELECT AVG(prices.volume)*1.1 FROM prices.stocks);"""
+# """SELECT prices.stock_name FROM prices 
+# WHERE prices.stock_name IN ('stock1', 'stock2', ...) 
+# AND prices.volume > (SELECT AVG(prices.volume)*1.1 FROM prices.stocks);"""
 
 
 # add download button

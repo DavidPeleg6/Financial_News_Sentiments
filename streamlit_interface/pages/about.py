@@ -1,4 +1,8 @@
 import streamlit as st
+try:
+    st.set_page_config(layout="wide")
+except:
+    pass
 
 dudu_linkedin = "https://www.linkedin.com/in/david-peleg-8b1b13162/"
 dudu_github = "https://github.com/DavidPeleg6"
