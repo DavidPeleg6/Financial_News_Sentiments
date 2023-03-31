@@ -139,7 +139,7 @@ def get_predictions(token: str,
                                     RoleSessionName='my-session')
     # get the temporary security credentials
     credentials = response['Credentials']
-    print(credentials)
+    raise Exception(str(credentials))
     # use the temporary security credentials to create a lambda client
     lambda_client = boto3.client('lambda',
                              aws_access_key_id=credentials['AccessKeyId'],
