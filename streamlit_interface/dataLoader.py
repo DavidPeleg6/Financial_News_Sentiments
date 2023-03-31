@@ -116,8 +116,8 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
 
 _pred_days = 60 # days back from today to try and predict
 
-
-@st.cache_data(ttl=60*60*24)
+# TODO: uncomment this, it's disabled for testing purposes
+#@st.cache_data(ttl=60*60*24)
 def get_predictions(token: str,
                    start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
                       end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
