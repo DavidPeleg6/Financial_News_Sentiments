@@ -124,20 +124,31 @@ def get_predictions(token: str,
     # returns an empty dataframe if it fails
     start_s = start.strftime('%Y-%m-%d')
     end_s = end.strftime('%Y-%m-%d')
-    data = {
+    payload = {
         'token': token,
         'start': start_s,
         'end': end_s
     }
-    # create a client with the IAM credentials
-    client = boto3.client('lambda',
-                    aws_access_key_id=os.environ['ID'],
-                    aws_secret_access_key=os.environ['PASS'])
-                    #,aws_session_token='SESSION_TOKEN')
-    response = client.invoke(FunctionName=os.environ['model_get_predictions_url'],
-                             InvocationType='RequestResponse')
+    # get the IAM role
+    # create an sts client with your IAM user credentials
+    sts_client = boto3.client('sts',
+                            aws_access_key_id=os.environ['ID'],
+                            aws_secret_access_key=os.environ['PASS'])
+    # assume an IAM role and get temporary security credentials
+    response = sts_client.assume_role(RoleArn=os.environ['model_role_arn'],
+                                    RoleSessionName='my-session')
+    # get the temporary security credentials
+    credentials = response['Credentials']
+    # use the temporary security credentials to create a lambda client
+    lambda_client = boto3.client('lambda',
+                             aws_access_key_id=credentials['AccessKeyId'],
+                             aws_secret_access_key=credentials['SecretAccessKey'],
+                             aws_session_token=credentials['SessionToken'])
     # Send POST request to API Gateway endpoint
-    response = requests.post(url, json=data)
+    response = lambda_client.invoke(FunctionName=os.environ['model_get_predictions_arn'],
+                                    InvocationType='RequestResponse',
+                                    Payload=payload)
+    # handle response
     if response.status_code == 200:
         # Parse JSON response and convert to Pandas DataFrame
         df = pd.read_json(response.content)
