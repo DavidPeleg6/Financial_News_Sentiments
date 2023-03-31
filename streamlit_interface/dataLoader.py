@@ -132,8 +132,8 @@ def get_predictions(token: str,
     # get the IAM role
     # create an sts client with your IAM user credentials
     sts_client = boto3.client('sts',
-                            aws_access_key_id=os.environ['ID'],
-                            aws_secret_access_key=os.environ['PASS'])
+                            aws_access_key_id=os.environ['DB_ACCESS_KEY'],
+                            aws_secret_access_key=os.environ['DB_SECRET_KEY'])
     # assume an IAM role and get temporary security credentials
     response = sts_client.assume_role(RoleArn=os.environ['model_role_arn'],
                                     RoleSessionName='my-session')
