@@ -5,6 +5,7 @@ import os
 import pymysql
 import datetime
 import boto3
+import json
 import requests
 
 @st.cache_data(ttl=60*60*24)
@@ -147,7 +148,7 @@ def get_predictions(token: str,
     # Send POST request to API Gateway endpoint
     response = lambda_client.invoke(FunctionName=os.environ['model_get_predictions_arn'],
                                     InvocationType='RequestResponse',
-                                    Payload=payload)
+                                    Payload=json.dumps(payload).encode('utf-8'))
     # handle response
     if response.status_code == 200:
         # Parse JSON response and convert to Pandas DataFrame
