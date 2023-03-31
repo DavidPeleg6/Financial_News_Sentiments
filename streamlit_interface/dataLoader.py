@@ -131,7 +131,7 @@ def get_predictions(token: str,
     }
     # get the IAM role
     # create an sts client with your IAM user credentials
-    sts_client = boto3.client('sts',
+    sts_client = boto3.client('sts', region_name='us-east-2',
                             aws_access_key_id=os.environ['AV_AK'],
                             aws_secret_access_key=os.environ['AV_SAK'])
     # assume an IAM role and get temporary security credentials
@@ -140,7 +140,7 @@ def get_predictions(token: str,
     # get the temporary security credentials
     credentials = response['Credentials']
     # use the temporary security credentials to create a lambda client
-    lambda_client = boto3.client('lambda',
+    lambda_client = boto3.client('lambda', region_name='us-east-2',
                              aws_access_key_id=credentials['AccessKeyId'],
                              aws_secret_access_key=credentials['SecretAccessKey'],
                              aws_session_token=credentials['SessionToken'])
