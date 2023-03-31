@@ -149,6 +149,7 @@ def get_predictions(token: str,
     response = lambda_client.invoke(FunctionName=os.environ['model_get_predictions_arn'],
                                     InvocationType='RequestResponse',
                                     Payload=json.dumps(payload).encode('utf-8'))
+    raise Exception(str(response))
     # handle response
     if response.status_code == 200:
         # Parse JSON response and convert to Pandas DataFrame
