@@ -149,16 +149,16 @@ def get_predictions(token: str,
     response = lambda_client.invoke(FunctionName=os.environ['model_get_predictions_arn'],
                                     InvocationType='RequestResponse',
                                     Payload=json.dumps(payload).encode('utf-8'))
-    raise Exception(str(response))
     # handle response
-    if response.status_code == 200:
+    if response['StatusCode'] == 200:
         # Parse JSON response and convert to Pandas DataFrame
-        df = pd.read_json(response.content)
+        data = response['Payload'].read().decode('utf-8')
+        df = pd.read_json(data, orient='columns')
         # Return the DataFrame
         return df
     else:
         # Print error message and return None
-        print('Error:', response.content)
+        print('Error:', response['FunctionError'])
         return pd.DataFrame()
 
 
