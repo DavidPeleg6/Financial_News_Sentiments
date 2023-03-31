@@ -5,10 +5,7 @@ import os
 import pymysql
 from sqlalchemy import create_engine
 
-try:
-    st.set_page_config(layout="wide")
-except:
-    pass
+st.set_page_config(layout="wide")
 
 time_step_options = ('Daily', 'Weekly', 'Monthly', 'All Time')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30, 'All Time': 365*20}

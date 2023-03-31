@@ -6,7 +6,6 @@ import os
 import plotly.express as px
 import pymysql
 
-
 st.set_page_config(layout="wide")
 
 time_step_options = ('Daily', 'Weekly', 'Monthly')
