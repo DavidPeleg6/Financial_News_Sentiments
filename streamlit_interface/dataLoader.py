@@ -153,6 +153,7 @@ def get_predictions(token: str,
     if response['StatusCode'] == 200:
         # Parse JSON response and convert to Pandas DataFrame
         data = response['Payload'].read().decode('utf-8')
+        raise Exception(str(data))
         df = pd.read_json(data, orient='columns')
         # Return the DataFrame
         return df
