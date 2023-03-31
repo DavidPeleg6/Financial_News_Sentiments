@@ -4,6 +4,7 @@ import datetime
 import os
 import pymysql
 import datetime
+import boto3
 import requests
 
 @st.cache_data(ttl=60*60*24)
@@ -114,13 +115,48 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
 
 _pred_days = 60 # days back from today to try and predict
 
+
 @st.cache_data(ttl=60*60*24)
 def get_predictions(token: str,
                    start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
                       end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
     # get stock predictions from aws by invoking the lambda function called 'model_get_predictions'
     # returns an empty dataframe if it fails
-    url = os.environ['model_get_predictions_url'] # TODO: set this as an env var
+    start_s = start.strftime('%Y-%m-%d')
+    end_s = end.strftime('%Y-%m-%d')
+    data = {
+        'token': token,
+        'start': start_s,
+        'end': end_s
+    }
+    # create a client with the IAM credentials
+    client = boto3.client('lambda',
+                    aws_access_key_id=os.environ['ID'],
+                    aws_secret_access_key=os.environ['PASS'])
+                    #,aws_session_token='SESSION_TOKEN')
+    response = client.invoke(FunctionName=os.environ['model_get_predictions_url'],
+                             InvocationType='RequestResponse')
+    # Send POST request to API Gateway endpoint
+    response = requests.post(url, json=data)
+    if response.status_code == 200:
+        # Parse JSON response and convert to Pandas DataFrame
+        df = pd.read_json(response.content)
+        # Return the DataFrame
+        return df
+    else:
+        # Print error message and return None
+        print('Error:', response.content)
+        return pd.DataFrame()
+
+
+# TODO: if above don't WORK H REVERT TO THISA
+@st.cache_data(ttl=60*60*24)
+def get_predictions_OLD(token: str,
+                   start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
+                      end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
+    # get stock predictions from aws by invoking the lambda function called 'model_get_predictions'
+    # returns an empty dataframe if it fails
+    url = os.environ['model_get_predictions_url']
     start_s = start.strftime('%Y-%m-%d')
     end_s = end.strftime('%Y-%m-%d')
     data = {
