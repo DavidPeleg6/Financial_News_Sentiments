@@ -35,6 +35,10 @@ if 'recomm_refresh' not in st.session_state:
     st.session_state.recomm_refresh = 0
 
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = _default_stonk)
+
+st.dataframe(get_predictions(stock_ticker))
+
+"""
 stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)
 if not stock_data.empty:
     # get datas
@@ -59,3 +63,4 @@ if not stock_data.empty:
 
 else:
     st.subheader('No data for this stock exists in the database')
+"""
