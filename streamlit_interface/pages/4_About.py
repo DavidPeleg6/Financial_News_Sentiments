@@ -12,5 +12,5 @@ st.write(f"David Peleg [github]({dudu_github}), [linkedin]({dudu_linkedin})")
 st.write(f"Avihai Didi [github]({avihai_github}), [linkedin]({avihai_linkedin})")
 
 st.write("Frontend was made using streamlit")
-st.write("Backend is hosted on AWS using a combination of dynamoDB, RDS, and lambda function")
+st.write("Backend is hosted on AWS using a combination of dynamoDB, RDS, and lambda functions")
 # TODO: when done with everything else check that this statement is still correct

@@ -126,7 +126,7 @@ def get_predictions(token: str,
     start_s = start.strftime('%Y-%m-%d')
     end_s = end.strftime('%Y-%m-%d')
     payload = {
-        'token': token,
+        'token': token.upper(),
         'start': start_s,
         'end': end_s
     }
@@ -161,33 +161,6 @@ def get_predictions(token: str,
         print('Error:', response['FunctionError'])
         return pd.DataFrame()
 
-
-# TODO: if above don't WORK H REVERT TO THISA
-@st.cache_data(ttl=60*60*24)
-def get_predictions_OLD(token: str,
-                   start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
-                      end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
-    # get stock predictions from aws by invoking the lambda function called 'model_get_predictions'
-    # returns an empty dataframe if it fails
-    url = os.environ['model_get_predictions_url']
-    start_s = start.strftime('%Y-%m-%d')
-    end_s = end.strftime('%Y-%m-%d')
-    data = {
-        'token': token,
-        'start': start_s,
-        'end': end_s
-    }
-    # Send POST request to API Gateway endpoint
-    response = requests.post(url, json=data)
-    if response.status_code == 200:
-        # Parse JSON response and convert to Pandas DataFrame
-        df = pd.read_json(response.content)
-        # Return the DataFrame
-        return df
-    else:
-        # Print error message and return None
-        print('Error:', response.content)
-        return pd.DataFrame()
 
 """
 
