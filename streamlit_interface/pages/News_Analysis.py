@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-import pymysql
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
+st.set_page_config(layout="wide")
 
 time_step_options = ('Daily', 'Weekly', 'Monthly', 'All Time')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30, 'All Time': 365*20}
@@ -17,11 +17,10 @@ try:
     os.environ['ID'] = DB_ACCESS_KEY['ID'][0]
     os.environ['PASS'] = DB_ACCESS_KEY['PASS'][0]
     os.environ['URL'] = DB_ACCESS_KEY['URL'][0]
-    st.session_state.OFFLINE = True
 except FileNotFoundError:
-    st.session_state.OFFLINE = False
+    pass
 
-st.session_state.OFFLINE = False
+# st.session_state.OFFLINE = False
 
 @st.cache_data(ttl=60*60*24)
 def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
@@ -32,28 +31,45 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
     :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
     :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
     """
-    if st.session_state.OFFLINE:
-        sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
-        sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
-        return sentiment_data
+    # if st.session_state.OFFLINE:
+    #     sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
+    #     sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
+    #     return sentiment_data
     
-    # Connect to the database
-    connection = pymysql.connect(
-        host=os.environ['URL'],
-        user=os.environ['ID'],
-        passwd=os.environ['PASS'],
-        db="stock_data"
-    )
     # get data from the past month unless specified to take the entire dataframe
     query = """SELECT *
                FROM Sentiments
                WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
-            """ if all_time else """SELECT * FROM Sentiments"""
+            """ if not all_time else """SELECT * FROM Sentiments"""
+    
     # Query the database and load results into a pandas dataframe
-    dataframe = pd.read_sql_query(query, connection, parse_dates=['time_published'])
-    connection.close()
-    # dataframe['time_published'] = pd.to_datetime(dataframe['time_published'])
-    dataframe = dataframe.set_index('time_published').sort_index(ascending=False)
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data", echo=False)
+    with engine.connect() as connection:
+        dataframe = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['time_published']).set_index('time_published').sort_index(ascending=False)
+    
+    return dataframe
+
+
+st.cache_data(ttl=60*60*24)
+def getStockData(refreshes, stock_list=["MSFT"], all_time=False) -> pd.DataFrame:
+    """
+    returns a dataframe with the stock data for the stocks, as taken from the AWS database.
+    the dataframe has the following columns:
+    """
+    stocks = [f"'{stock}'" for stock in stock_list]
+    # get data from the past month unless specified to take the entire dataframe
+    query = f"""SELECT * FROM Prices WHERE Prices.Stock IN ({','.join(stocks)});
+            """ if all_time else f"""
+            SELECT *
+            FROM Prices
+            WHERE Date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND Prices.Stock IN ({','.join(stocks)});
+            """
+
+    # Query the database and load results into a pandas dataframe
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        dataframe = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date'])
+
     return dataframe
 
 
@@ -75,7 +91,8 @@ number_of_stocks = st.slider(
     step = 1, label_visibility='hidden')
 # add another slider but hide min max values
 
-sentiment_ticker_list = getSentimentData(st.session_state.sentiment_refresh, timeframe!='All Time')
+# ------------------------------------- Get top sentiments and their values -------------------------------------
+sentiment_ticker_list = getSentimentData(st.session_state.sentiment_refresh, timeframe=='All Time')
 # convert data type to float
 sentiment_ticker_list['sentiment'] = pd.to_numeric(sentiment_ticker_list['sentiment'])
 
@@ -93,23 +110,52 @@ top_sentiment_data = sentiment_data[sentiment_data['stock'].isin(top_stocks.inde
 st.subheader('Average sentiment of most trending stocks (bullish = 1, bearish = -1)')
 st.bar_chart(data = top_sentiment_data.groupby('stock')['sentiment'].mean(), use_container_width = True)
 
-st.subheader('Mean sentiment score over time')
+
+# ------------------------------------- Get the change in volumes for each of the most trending stocks -------------------------------------
+st.subheader('Trading volumes of the last day (higher = more volume than average)')
+# get the top stocks
+stock_data = getStockData(st.session_state.sentiment_refresh, top_stocks.index.to_list(), timeframe=='All Time')
+stock_data = stock_data.loc[stock_data.Date >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas['Monthly']))]
+# convert the volume column to int
+stock_data['volume'] = stock_data['volume'].astype(int)
+# averaged volume of each stock
+mean, std = stock_data.groupby('Stock')['volume'].mean(), stock_data.groupby('Stock')['volume'].std()
+# drop all columns of stock data except for the volume and Stock
+# last_day_data = stock_data[['Stock', 'volume']].groupby('Stock').last(len(stock_data['Stock'].unique()))
+last_day_data = stock_data[['Stock', 'volume', 'Date']].groupby('Stock').last(len(stock_data['Stock'].unique()))
+last_day_data['Stock'] = last_day_data.index
+# subtract the values of volume in stock_data from the mean of the volume of the stock
+last_day_data['Z-score'] = last_day_data.apply(lambda row: (row['volume'] - mean[row['Stock']]) / std[row['Stock']], axis=1)
+# create a st table with the values of volume, where each value is color coded from red to green depending on the standard deviation column. where -1 is most red and 1 is most green
+st.bar_chart(data = last_day_data['Z-score'], use_container_width = True)
+
+
+# ------------------------------------- Get a list of articles for a chosen stock -------------------------------------
+st.subheader(f'Most trending articles:')
 # get the input from the user
 stock_ticker = st.text_input(label = 'Type stock ticker below', value = 'AAPL')
 # get the sentiment data for the stock the user chose
-stock_sentiment_data = sentiment_ticker_list[sentiment_ticker_list['stock'] == str.upper(stock_ticker)]
+# stock_sentiment_data = sentiment_ticker_list[sentiment_ticker_list['stock'] == str.upper(stock_ticker)]
+stock_sentiment_data = sentiment_data[sentiment_data['stock'] == str.upper(stock_ticker)]
 # drop the hour from the index column
 stock_sentiment_data.index = stock_sentiment_data.index.strftime('%Y-%m-%d')
-# create a table containing the daily mean sentiment score for the stock the user chose
-sentiment_over_time = stock_sentiment_data.groupby('time_published')['sentiment'].mean()
-# plot the table
-st.line_chart(data = sentiment_over_time, use_container_width = True)
+# get the top 10 rows with the highest relevance_score. filter out only articles that have a relevance score of at least 0.5
+top_articles = stock_sentiment_data[(stock_sentiment_data['relevance_score'] >= 0.3) & abs(stock_sentiment_data['sentiment'] >= 0.2)].sort_values(by='relevance_score', ascending=False).head(10)
 
-# in preperation for the last feature of volume x sentiment, here is the query to be used
-"""SELECT prices.stock_name FROM prices 
-WHERE prices.stock_name IN ('stock1', 'stock2', ...) 
-AND prices.volume > (SELECT AVG(prices.volume)*1.1 FROM prices.stocks);"""
+# create a list in st of urls to the articles
+for url in top_articles['article_url']:
+    # parse out the name of the article from the url
+    article_name = ' '.join(url.split('/')[-1].split('-'))
+    # create a link to the article, where the name is the name of the article
+    st.write(f'[{article_name}]({url})')
 
+# ------------------------------------- Get the change in sentiment over time for a chosen stock -------------------------------------
+if timeframe != 'Daily':
+    st.subheader(f'{stock_ticker} mean sentiment score over time')
+    # create a table containing the daily mean sentiment score for the stock the user chose
+    sentiment_over_time = stock_sentiment_data.groupby('time_published')['sentiment'].mean()
+    # plot the table
+    st.line_chart(data = sentiment_over_time, use_container_width = True)
 
 # add download button
 st.download_button('Download raw sentiment data', sentiment_ticker_list.to_csv(), 'sentiment_data.csv', 'text/csv')
