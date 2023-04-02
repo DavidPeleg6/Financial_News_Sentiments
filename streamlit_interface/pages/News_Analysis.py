@@ -144,7 +144,10 @@ top_articles = stock_sentiment_data[(stock_sentiment_data['relevance_score'] >= 
 
 # create a list in st of urls to the articles
 for url in top_articles['article_url']:
-    st.markdown(f'{url}')
+    # parse out the name of the article from the url
+    article_name = ' '.join(url.split('/')[-1].split('-'))
+    # create a link to the article, where the name is the name of the article
+    st.write(f'[{article_name}]({url})')
 
 # ------------------------------------- Get the change in sentiment over time for a chosen stock -------------------------------------
 if timeframe != 'Daily':
