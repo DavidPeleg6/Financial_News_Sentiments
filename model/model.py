@@ -10,6 +10,7 @@ import optuna
 from os import mkdir, path
 from sklearn.metrics import mean_squared_error
 import datetime
+import boto3
 
 import consts
 import offline_data
@@ -233,6 +234,94 @@ def load_model(token: str) -> xgb.XGBRegressor:
     if loaded_model == None:
         print("Model creation failed for " + token)
     return loaded_model
+
+_DDB_MAX_FILESIZE = 400000
+
+def write_models_to_DDB_v2(token_list: list, progress_bar: bool = True):
+    # loads all models in 'tokens' and writes their binaries to DynamoDB
+    # THIS VERSION USES A BATCH WRITER
+    succsuss_count = 0
+    iter = 0
+    total = len(token_list)
+    dynamodb = boto3.resource('dynamodb',
+                              region_name='us-east-2',
+                              aws_access_key_id=consts.aws_access_key_id,
+                              aws_secret_access_key=consts.aws_secret_access_key)
+    table = dynamodb.Table("ModelsXGB")
+    with table.batch_writer() as batch:
+        for token in token_list:
+            if progress_bar:
+                iter += 1
+                _printProgressBar(iteration = iter, total = total, prefix=token, suffix="0/?")
+            # get model
+            file_path = f"{consts.folders['model']}/{token}.bin"
+            try:
+                file_size = path.getsize(file_path)
+                if file_size > _DDB_MAX_FILESIZE:
+                    print(f"File {file_path} is too big for DDB ({file_size} bytes). Skipping...")
+                    continue
+                with open(file_path, 'rb') as file:
+                    data = file.read()
+            except:
+                print("Failed to load model for " + token)
+                continue
+            # write it
+            try:
+                response = batch.put_item(
+                Item={
+                    'Stock': token,
+                    'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
+                    'Model': data
+                })
+                if progress_bar:
+                    _printProgressBar(iteration = iter, total = total, prefix=token, suffix="writing...")
+            except Exception as e:
+                print("Unknown error when trying to process " + token)
+                print("Error msg:\t" + str(e))
+                continue
+            succsuss_count += 1
+        if progress_bar:
+            print(f"Completed predictioning for {succsuss_count}/{total} tokens.")
+
+
+def write_models_to_DDB(token_list: list, progress_bar: bool = True):
+    # loads all models in 'tokens' and writes their binaries to DynamoDB
+    succsuss_count = 0
+    iter = 0
+    total = len(token_list)
+    dynamodb = boto3.resource('dynamodb',
+                              region_name='us-east-2',
+                              aws_access_key_id=consts.aws_access_key_id,
+                              aws_secret_access_key=consts.aws_secret_access_key)
+    table = dynamodb.Table("ModelsXGB")
+    for token in token_list:
+        if progress_bar:
+            iter += 1
+            _printProgressBar(iteration = iter, total = total, prefix=token, suffix="0/?")
+        # get model
+        try:
+            with open(f"{consts.folders['model']}/{token}.bin", 'rb') as file:
+                data = file.read()
+        except:
+            print("Failed to load model for " + token)
+            continue
+        # write it
+        try:
+            response = table.put_item(
+            Item={
+                'Stock': token,
+                'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
+                'Model': data
+            })
+            if progress_bar:
+                _printProgressBar(iteration = iter, total = total, prefix=token, suffix="writing...")
+        except Exception as e:
+            print("Unknown error when trying to process " + token)
+            print("Error msg:\t" + str(e))
+            continue
+        succsuss_count += 1
+    if progress_bar:
+        print(f"Completed predictioning for {succsuss_count}/{total} tokens.")
 
 def predict_tomorrow(tokens: list, date: datetime.date, gattai: bool = True,) -> pd.DataFrame:
     """
