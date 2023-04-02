@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd 
 import os
-# import boto3
-# from boto3.dynamodb.conditions import Key
 import plotly.express as px
-import pymysql
+from sqlalchemy import create_engine, text
 
 st.set_page_config(layout="wide")
 
@@ -34,55 +32,21 @@ def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) ->
     #     stock_prices = pd.read_csv("streamlit_interface/temp_data/stock_df.csv", index_col="Date")
     #     # get stock prices of a stock in the Stock column
     #     stock_prices = stock_prices[stock_prices['Stock'] == str.upper(stock)].drop(columns=['Stock'], errors='ignore')
-    # else:
-        # # specify key and secret key
-        # aws_access_key_id = os.environ['DB_ACCESS_KEY']
-        # aws_secret_access_key = os.environ['DB_SECRET_KEY']
-        # # # create a boto3 client and import all stock prices from it
-        # dynamodb = boto3.resource('dynamodb', region_name='us-east-2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-        # table = dynamodb.Table('StockPrices')
-        # # keep scanning until we have all the data in the table
-        # # create a filter expression to only get the data for the specified stock
-        # response = table.query(KeyConditionExpression=Key('Stock').eq(str.upper(stock)))
-        # if len(response['Items']) == 0:
-        #     st.write('No data for this stock')
-        #     return pd.DataFrame()
-        # data = response['Items']
-        # # create a progress bar to show the user that the data is being loaded
-        # while 'LastEvaluatedKey' in response:
-        #     response = table.query(KeyConditionExpression=Key('Stock').eq(stock), ExclusiveStartKey=response['LastEvaluatedKey'])
-        #     data.extend(response['Items'])
-        #     # show the number of items loaded so far
-        #     st.write(len(data))
-        # Connect to the database
-    connection = pymysql.connect(
-        host=os.environ['URL'],
-        user=os.environ['ID'],
-        passwd=os.environ['PASS'],
-        db="stock_data"
-    )
+    
     # get data from the past month unless specified to take the entire dataframe
     query = f"""SELECT * FROM Prices WHERE Stock = '{str.upper(stock)}';""" if alltime else f"""
-            SELECT * FROM Prices Where Stock = '{str.upper(stock)}' and Date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH);"""
+            SELECT * FROM Prices Where Stock = '{str.upper(stock)}' and Date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH);"""
+    
     # Query the database and load results into a pandas dataframe
-    data = pd.read_sql_query(query, connection, parse_dates=['Date'])
-    connection.close()
-    # convert the data to a pandas dataframe and drop the stock column
-    stock_prices = pd.DataFrame(data).drop(columns=['Stock'], errors='ignore')
-    stock_prices.set_index('Date', inplace=True)
-    # make the index the Date column
-    stock_prices.sort_index(ascending=False, inplace=True)
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        stock_prices = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date']).drop(columns=['Stock']).set_index('Date').sort_index(ascending=False)
     return stock_prices
 
 
 def convert_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """Converts the column names of a dataframe to more readable names.
-    
-    Args:
-        df (pd.DataFrame): A dataframe.
-    
-    Returns:
-        pd.DataFrame: A dataframe with the column names converted.
+    """
+    Converts the column names of a dataframe to more readable names. 
     """
     # replace all spaces with underscores
     df.columns = df.columns.str.replace('_', ' ')

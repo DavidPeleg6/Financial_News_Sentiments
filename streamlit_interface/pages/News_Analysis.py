@@ -2,9 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-import pymysql
-from sqlalchemy import create_engine
-import numpy as np
+from sqlalchemy import create_engine, text
 
 st.set_page_config(layout="wide")
 
@@ -38,22 +36,17 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
     #     sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
     #     return sentiment_data
     
-    # Connect to the database
-    connection = pymysql.connect(
-        host=os.environ['URL'],
-        user=os.environ['ID'],
-        passwd=os.environ['PASS'],
-        db="stock_data"
-    )
     # get data from the past month unless specified to take the entire dataframe
     query = """SELECT *
                FROM Sentiments
                WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
             """ if not all_time else """SELECT * FROM Sentiments"""
+    
     # Query the database and load results into a pandas dataframe
-    dataframe = pd.read_sql_query(query, connection, parse_dates=['time_published'])
-    connection.close()
-    dataframe = dataframe.set_index('time_published').sort_index(ascending=False)
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data", echo=False)
+    with engine.connect() as connection:
+        dataframe = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['time_published']).set_index('time_published').sort_index(ascending=False)
+    
     return dataframe
 
 
@@ -64,8 +57,6 @@ def getStockData(refreshes, stock_list=["MSFT"], all_time=False) -> pd.DataFrame
     the dataframe has the following columns:
     """
     stocks = [f"'{stock}'" for stock in stock_list]
-    # Connect to the database
-    connection = pymysql.connect(host=os.environ['URL'], user=os.environ['ID'], passwd=os.environ['PASS'], db="stock_data")
     # get data from the past month unless specified to take the entire dataframe
     query = f"""SELECT * FROM Prices WHERE Prices.Stock IN ({','.join(stocks)});
             """ if all_time else f"""
@@ -73,9 +64,12 @@ def getStockData(refreshes, stock_list=["MSFT"], all_time=False) -> pd.DataFrame
             FROM Prices
             WHERE Date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND Prices.Stock IN ({','.join(stocks)});
             """
+
     # Query the database and load results into a pandas dataframe
-    dataframe = pd.read_sql_query(query, connection, parse_dates=['Date'])
-    connection.close()
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        dataframe = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date'])
+
     return dataframe
 
 
@@ -121,14 +115,14 @@ st.bar_chart(data = top_sentiment_data.groupby('stock')['sentiment'].mean(), use
 st.subheader('Trading volumes of the last day (higher = more volume than average)')
 # get the top stocks
 stock_data = getStockData(st.session_state.sentiment_refresh, top_stocks.index.to_list(), timeframe=='All Time')
-stock_data = stock_data.loc[stock_data.Date >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas[timeframe]))]
+stock_data = stock_data.loc[stock_data.Date >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas['Monthly']))]
 # convert the volume column to int
 stock_data['volume'] = stock_data['volume'].astype(int)
 # averaged volume of each stock
 mean, std = stock_data.groupby('Stock')['volume'].mean(), stock_data.groupby('Stock')['volume'].std()
-# st.dataframe(mean)
 # drop all columns of stock data except for the volume and Stock
-last_day_data = stock_data[['Stock', 'volume']].groupby('Stock').last(len(stock_data['Stock'].unique()))
+# last_day_data = stock_data[['Stock', 'volume']].groupby('Stock').last(len(stock_data['Stock'].unique()))
+last_day_data = stock_data[['Stock', 'volume', 'Date']].groupby('Stock').last(len(stock_data['Stock'].unique()))
 last_day_data['Stock'] = last_day_data.index
 # subtract the values of volume in stock_data from the mean of the volume of the stock
 last_day_data['Z-score'] = last_day_data.apply(lambda row: (row['volume'] - mean[row['Stock']]) / std[row['Stock']], axis=1)
@@ -153,11 +147,12 @@ for url in top_articles['article_url']:
     st.markdown(f'{url}')
 
 # ------------------------------------- Get the change in sentiment over time for a chosen stock -------------------------------------
-st.subheader(f'{stock_ticker} mean sentiment score over time')
-# create a table containing the daily mean sentiment score for the stock the user chose
-sentiment_over_time = stock_sentiment_data.groupby('time_published')['sentiment'].mean()
-# plot the table
-st.line_chart(data = sentiment_over_time, use_container_width = True)
+if timeframe != 'Daily':
+    st.subheader(f'{stock_ticker} mean sentiment score over time')
+    # create a table containing the daily mean sentiment score for the stock the user chose
+    sentiment_over_time = stock_sentiment_data.groupby('time_published')['sentiment'].mean()
+    # plot the table
+    st.line_chart(data = sentiment_over_time, use_container_width = True)
 
 # add download button
 st.download_button('Download raw sentiment data', sentiment_ticker_list.to_csv(), 'sentiment_data.csv', 'text/csv')
