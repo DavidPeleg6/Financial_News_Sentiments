@@ -5,7 +5,7 @@ import pymysql
 import sqlalchemy
 
 # the number of days to look back
-TIME_BACK = 15
+TIME_BACK = 1
 # TIME_BACK = 365*2
 
 
@@ -31,8 +31,6 @@ def write_stocks(stock_list):
         stocks_df['Date'] = pd.to_datetime(stocks_df.index)
         # concatenate all the rows of the stocks_df to the df
         df = pd.concat([df, stocks_df], ignore_index=True)
-    # convert Date column to datetime
-    df = df.set_index(['Stock','Date'])
 
     #-------------------------------------------- WRITE TO DATABASE ---------------------------------------------------#
     dtypes = {column_name: sqlalchemy.types.DECIMAL(15,2) for column_name in df.columns if column_name not in ('Date', 'Stock')}
@@ -43,12 +41,20 @@ def write_stocks(stock_list):
     conn = pymysql.connect(host=url, user=username, password=password, db='stock_data')
     # Create a SQLAlchemy engine object
     engine = sqlalchemy.create_engine(f'mysql+pymysql://{username}:{password}@{url}/stock_data', echo=False)
-    for i in range(len(df)):
+    # # convert Date column to datetime
+    # df = df.set_index(['Stock','Date'])
+    # for i in range(len(df)):
+    #     try:
+    #         # df.iloc[i:i+1].to_sql(name='Prices', con=engine, if_exists='append', index=True, index_label=['Stock', 'Date'], dtype=dtypes)
+    #     except Exception as e:
+    #         pass
+    for stock in stock_list:
+        sub_df = df[df['Stock'] == stock].set_index(['Stock','Date'])
         try:
-            df.iloc[i:i+1].to_sql(name='Prices', con=engine, if_exists='append', index=True, index_label=['Stock', 'Date'], dtype=dtypes)
-        except Exception as e:
-            print(e)
+            sub_df.to_sql(name='Prices', con=engine, if_exists='append', index=True, index_label=['Stock', 'Date'], dtype=dtypes)
+        except Exception:
             pass
+
     # Close the connection
     conn.close()
 
