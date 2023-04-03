@@ -20,12 +20,7 @@ def get_data(parameters):
         response = requests.get(endpoint, params=parameters)
         # Check if the request was successful
         if response.status_code == 200:
-            data = response.json()
-            if 'Note' not in data: 
-                break
-            data = None
-            time.sleep(1)
-    return data
+            return response.json()
 
 
 def lambda_handler(event, context):
@@ -35,7 +30,7 @@ def lambda_handler(event, context):
     companies = [str.upper(stock) for stock in event['body']]
     df = pd.DataFrame()
     for company in companies:
-        earnings = get_data({"function": function, "symbol": company, "horizon": "3month"})
+        earnings = get_data({"function": function, "symbol": company})
         earnings = pd.DataFrame(earnings['quarterlyEarnings']).drop(columns=['surprise'])
         # add a column with the stock symbol
         earnings['stock'] = company
@@ -43,7 +38,7 @@ def lambda_handler(event, context):
         earnings['reportedDate'] = pd.to_datetime(earnings['reportedDate'])
         earnings['fiscalDateEnding'] = pd.to_datetime(earnings['fiscalDateEnding'])
         # take only the data up to 2 years ago and convert to numeric
-        earnings = earnings[earnings['reportedDate'] >= datetime.now() - timedelta(days=2*365)].dropna().sort_index(ascending=False)
+        earnings = earnings[earnings['reportedDate'] >= datetime.now() - timedelta(days=2*365)].sort_index(ascending=False)
         df = pd.concat([df, earnings], ignore_index=True)
 
     # ---------------------------------------------- WRITE DATA TO DB ----------------------------------------------
@@ -68,4 +63,5 @@ def lambda_handler(event, context):
             try:
                 sub_df.to_sql(name='Earnings', con=engine, if_exists='append', index=True, index_label=['stock', 'fiscalDateEnding'], dtype=dtypes)
             except Exception:
-                pass
+                print(f'exception on {stock}')
+                continue
