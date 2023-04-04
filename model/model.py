@@ -115,8 +115,7 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
         return None
     if FE:
         df_copy = feature_engineering.add_moving_averages(df_copy)
-        df_copy = feature_engineering.add_moving_highs(df_copy)
-        df_copy = feature_engineering.add_moving_lows(df_copy)
+        df_copy = feature_engineering.add_moving_peaks(df_copy)
     # raise the all the columns up by one day so that the model only gets the daily open price and
     # the rest of the data from yesterday
     for col in set(df_copy.columns) - {'close', 'open'}: df_copy[col] = df_copy[col][1:].shift(-1)
@@ -194,7 +193,8 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             _save_model_info(token, new_RMSE, test_months, optimize)
     return model
 
-def generate_models(token_list: list, optimize: bool = True, test_months: int = 3, gattai: bool = True,
+def generate_models(token_list: list, optimize: bool = True, test_months: int = 3,
+                    gattai: bool = True, FE: bool = True,
                     progress_bar: bool = True, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> int:
     """
     Generates a model for each token in 'token_list' and saves them to the models folder
@@ -210,7 +210,7 @@ def generate_models(token_list: list, optimize: bool = True, test_months: int = 
         if progress_bar:
             iter += 1
             _printProgressBar(iteration = iter, total = total, prefix="Generating models.", suffix=token)
-        model = new_model(token = token, optimize = optimize, gattai=gattai,
+        model = new_model(token = token, optimize = optimize, gattai=gattai, FE = FE,
                           test_months = test_months, overwrite_mode = overwrite_mode)
         if model != None:
             sucsssusfull += 1
@@ -288,47 +288,7 @@ def write_models_to_DDB_v2(token_list: list, progress_bar: bool = True):
         if progress_bar:
             print(f"Uploaded models to ddb for {succsuss_count}/{total} tokens.")
 
-
 def write_models_to_DDB(token_list: list, progress_bar: bool = True):
-    # loads all models in 'tokens' and writes their binaries to DynamoDB
-    succsuss_count = 0
-    iter = 0
-    total = len(token_list)
-    dynamodb = boto3.resource('dynamodb',
-                              region_name='us-east-2',
-                              aws_access_key_id=consts.aws_access_key_id,
-                              aws_secret_access_key=consts.aws_secret_access_key)
-    table = dynamodb.Table("ModelsXGB")
-    for token in token_list:
-        if progress_bar:
-            iter += 1
-            _printProgressBar(iteration = iter, total = total, prefix=token, suffix="0/?")
-        # get model
-        try:
-            with open(f"{consts.folders['model']}/{token}.bin", 'rb') as file:
-                data = file.read()
-        except:
-            print("Failed to load model for " + token)
-            continue
-        # write it
-        try:
-            response = table.put_item(
-            Item={
-                'Stock': token,
-                'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
-                'Model': data
-            })
-            if progress_bar:
-                _printProgressBar(iteration = iter, total = total, prefix=token, suffix="writing...")
-        except Exception as e:
-            print("Unknown error when trying to process " + token)
-            print("Error msg:\t" + str(e))
-            continue
-        succsuss_count += 1
-    if progress_bar:
-        print(f"Uploaded models to ddb for {succsuss_count}/{total} tokens.")
-
-def DDB_models_test(token_list: list, progress_bar: bool = True):
     # test version, uploading to test database
     succsuss_count = 0
     iter = 0
@@ -337,7 +297,7 @@ def DDB_models_test(token_list: list, progress_bar: bool = True):
                               region_name='us-east-2',
                               aws_access_key_id=consts.aws_access_key_id,
                               aws_secret_access_key=consts.aws_secret_access_key)
-    table = dynamodb.Table("ModelsXGB_test")
+    table = dynamodb.Table("ModelsXGB")
     with table.batch_writer() as batch:
         for token in token_list:
             if progress_bar:
@@ -352,9 +312,8 @@ def DDB_models_test(token_list: list, progress_bar: bool = True):
                     print(f"File {file_path} is too big for DDB ({file_size} bytes). Skipping...")
                     continue
                 loaded_model.load_model(file_path)
-            except:
-                print("Failed to load model for " + token)
-                continue
+            except Exception as e:
+                loaded_model = new_model(token, gattai=False)
             model_bytes = pickle.dumps(loaded_model)
             # write it
             try:
