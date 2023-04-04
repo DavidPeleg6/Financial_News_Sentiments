@@ -42,8 +42,7 @@ def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) ->
 @st.cache_data(ttl=60*60*24*30)
 def getStockEarnings(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
     """
-    returns a pandas dataframe structured as follows:
-    company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
+    returns a dataframe with all the company's earnings data from the past 2 years along with prediction for the next quarter
     """
     # get data from the past month unless specified to take the entire dataframe
     earnings_query = f"""SELECT * FROM Earnings WHERE stock = '{str.upper(stock)}';"""
