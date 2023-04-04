@@ -51,8 +51,8 @@ moving_averages = [30, 50, 100, 200]
 moving_highs = [4*7, 10*7, 52*7]
 moving_lows = [4*7, 10*7, 52*7]
 moving_averages_names = [f"{i}_day_MA" for i in moving_averages]
-moving_highs_names = [f"{i/7}_week_high" for i in moving_highs]
-moving_lows_names = [f"{i/7}_week_low" for i in moving_lows]
+moving_highs_names = [f"{int(i/7)}_week_high" for i in moving_highs]
+moving_lows_names = [f"{int(i/7)}_week_low" for i in moving_lows]
 
 # model
 default_XGboost_params = {'n_estimators': 1000, 'early_stopping_rounds': 200,
