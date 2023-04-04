@@ -10,11 +10,12 @@ import optuna
 from os import mkdir, path
 from sklearn.metrics import mean_squared_error
 import datetime
-import boto3
+import boto3, pickle
 
 import consts
 import offline_data
 from online_data import write_to_DDB
+import feature_engineering
 
 class overwrite_modes(Enum):
     NEVER = 1
@@ -81,7 +82,7 @@ def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
 
 
 def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True,
-              test_months: int = consts.test_months, gattai: bool = True,
+              test_months: int = consts.test_months, gattai: bool = True, FE: bool = True,
               print_acc: bool = False, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> xgb.XGBRegressor:
     """
     Parameters:
@@ -112,6 +113,10 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     if df_copy.empty:
         print("Failed to load data for " + token)
         return None
+    if FE:
+        df_copy = feature_engineering.add_moving_averages(df_copy)
+        df_copy = feature_engineering.add_moving_highs(df_copy)
+        df_copy = feature_engineering.add_moving_lows(df_copy)
     # raise the all the columns up by one day so that the model only gets the daily open price and
     # the rest of the data from yesterday
     for col in set(df_copy.columns) - {'close', 'open'}: df_copy[col] = df_copy[col][1:].shift(-1)
@@ -281,7 +286,7 @@ def write_models_to_DDB_v2(token_list: list, progress_bar: bool = True):
                 continue
             succsuss_count += 1
         if progress_bar:
-            print(f"Completed predictioning for {succsuss_count}/{total} tokens.")
+            print(f"Uploaded models to ddb for {succsuss_count}/{total} tokens.")
 
 
 def write_models_to_DDB(token_list: list, progress_bar: bool = True):
@@ -321,7 +326,53 @@ def write_models_to_DDB(token_list: list, progress_bar: bool = True):
             continue
         succsuss_count += 1
     if progress_bar:
-        print(f"Completed predictioning for {succsuss_count}/{total} tokens.")
+        print(f"Uploaded models to ddb for {succsuss_count}/{total} tokens.")
+
+def DDB_models_test(token_list: list, progress_bar: bool = True):
+    # test version, uploading to test database
+    succsuss_count = 0
+    iter = 0
+    total = len(token_list)
+    dynamodb = boto3.resource('dynamodb',
+                              region_name='us-east-2',
+                              aws_access_key_id=consts.aws_access_key_id,
+                              aws_secret_access_key=consts.aws_secret_access_key)
+    table = dynamodb.Table("ModelsXGB_test")
+    with table.batch_writer() as batch:
+        for token in token_list:
+            if progress_bar:
+                iter += 1
+                _printProgressBar(iteration = iter, total = total, prefix=token, suffix="0/?")
+            # get model
+            file_path = f"{consts.folders['model']}/{token}.bin"
+            loaded_model = xgb.XGBRegressor()
+            try:
+                file_size = path.getsize(file_path)
+                if file_size > _DDB_MAX_FILESIZE:
+                    print(f"File {file_path} is too big for DDB ({file_size} bytes). Skipping...")
+                    continue
+                loaded_model.load_model(file_path)
+            except:
+                print("Failed to load model for " + token)
+                continue
+            model_bytes = pickle.dumps(loaded_model)
+            # write it
+            try:
+                response = batch.put_item(
+                Item={
+                    'Stock': token,
+                    'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
+                    'Model': model_bytes
+                })
+                if progress_bar:
+                    _printProgressBar(iteration = iter, total = total, prefix=token, suffix="writing...")
+            except Exception as e:
+                print("Unknown error when trying to process " + token)
+                print("Error msg:\t" + str(e))
+                continue
+            succsuss_count += 1
+        if progress_bar:
+            print(f"Uploaded models to ddb for {succsuss_count}/{total} tokens.")
 
 def predict_tomorrow(tokens: list, date: datetime.date, gattai: bool = True,) -> pd.DataFrame:
     """

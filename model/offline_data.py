@@ -100,9 +100,9 @@ def load_weekly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE:
             print("Could not obtain online weekly price data for " + token)
             return pd.DataFrame()
         if FE:
-            feature_engineering.add_moving_averages(df)
-            feature_engineering.add_moving_highs(df)
-            feature_engineering.add_moving_lows(df)
+            df = feature_engineering.add_moving_averages(df)
+            df = feature_engineering.add_moving_highs(df)
+            df = feature_engineering.add_moving_lows(df)
             save_weekly_price(df, token, FEed = True)
         else:
             save_weekly_price(df, token, FEed = False)
@@ -157,9 +157,9 @@ def load_monthly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE
             print("Could not obtain online monthly price data for " + token)
             return pd.DataFrame()
         if FE:
-            feature_engineering.add_moving_averages(df)
-            feature_engineering.add_moving_highs(df)
-            feature_engineering.add_moving_lows(df)
+            df = feature_engineering.add_moving_averages(df)
+            df = feature_engineering.add_moving_highs(df)
+            df = feature_engineering.add_moving_lows(df)
             save_monthly_price(df, token, FEed = True)
         else:
             save_monthly_price(df, token, FEed = False)
