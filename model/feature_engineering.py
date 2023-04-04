@@ -53,7 +53,7 @@ def add_moving_peaks(df: pd.DataFrame, target: str = 'adjusted_close',
     # dumbass index based loop, yay
     for i in range(len(high_spans)):
         tar_df[high_span_names[i]] = tar_df[target].rolling(high_spans[i]).max()
-        tar_df[low_span_names[i]] = tar_df[target].rolling(low_spans[i]).max()
+        tar_df[low_span_names[i]] = tar_df[target].rolling(low_spans[i]).min()
     return tar_df
 
 def add_moving_highs(df: pd.DataFrame, target: str = 'adjusted_close',
