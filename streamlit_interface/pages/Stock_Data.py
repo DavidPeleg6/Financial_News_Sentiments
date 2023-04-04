@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import plotly.express as px
 from sqlalchemy import create_engine, text
+from sklearn.metrics import mean_absolute_error
 
 st.set_page_config(layout="wide")
 
@@ -20,7 +21,6 @@ try:
 except FileNotFoundError:
     pass
 
-# st.session_state.OFFLINE = False
 
 @st.cache_data(ttl=60*60*24)
 def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) -> pd.DataFrame:
@@ -28,11 +28,6 @@ def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) ->
     returns a pandas dataframe structured as follows:
     company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
     """
-    # if st.session_state.OFFLINE:
-    #     stock_prices = pd.read_csv("streamlit_interface/temp_data/stock_df.csv", index_col="Date")
-    #     # get stock prices of a stock in the Stock column
-    #     stock_prices = stock_prices[stock_prices['Stock'] == str.upper(stock)].drop(columns=['Stock'], errors='ignore')
-    
     # get data from the past month unless specified to take the entire dataframe
     query = f"""SELECT * FROM Prices WHERE Stock = '{str.upper(stock)}';""" if alltime else f"""
             SELECT * FROM Prices Where Stock = '{str.upper(stock)}' and Date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH);"""
@@ -42,6 +37,25 @@ def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) ->
     with engine.connect() as connection:
         stock_prices = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date']).drop(columns=['Stock']).set_index('Date').sort_index(ascending=False)
     return stock_prices
+
+
+@st.cache_data(ttl=60*60*24*30)
+def getStockEarnings(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
+    """
+    returns a pandas dataframe structured as follows:
+    company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
+    """
+    # get data from the past month unless specified to take the entire dataframe
+    earnings_query = f"""SELECT * FROM Earnings WHERE stock = '{str.upper(stock)}';"""
+    future_earnings_query = f"""SELECT * FROM FutureEarnings WHERE stock = '{str.upper(stock)}';"""
+
+    # Query the database and load results into a pandas dataframe
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        earnings = pd.read_sql_query(sql=text(earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportedDate']).drop(columns=['stock']).sort_values(by='fiscalDateEnding', ascending=False)
+        future_earnings = pd.read_sql_query(sql=text(future_earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportDate']).drop(columns=['stock', 'currency']).rename(columns={'reportDate': 'reportedDate', 'estimate': 'estimatedEPS'})
+    
+    return pd.concat([earnings, future_earnings], axis=0, ignore_index=True).sort_values(by='fiscalDateEnding', ascending=False)
 
 
 def convert_column_names(df: pd.DataFrame) -> pd.DataFrame:
@@ -62,8 +76,10 @@ def convert_column_names(df: pd.DataFrame) -> pd.DataFrame:
 refresh_stocks = st.button('Refresh')
 if refresh_stocks:
     st.session_state.stock_refresh += 1
-st.header('Basic Stock Data')
 
+
+# ------------------------------------- Stock Data -------------------------------------
+st.header('Stock price')
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = 'AAPL')
 stock_data = getPastStockPrices(st.session_state.stock_refresh, stock_ticker, alltime=True)
 if not stock_data.empty:
@@ -84,18 +100,40 @@ if not stock_data.empty:
     col3.subheader('Moving averages')
     col3.table(daily_data[['30 day moving average', '50 day moving average', '100 day moving average', '200 day moving average']].T.style.format('{:.1f}'))
     # create checkboxes for each column in the stock data, with default being close
-    checkboxes = st.multiselect('Select indicators to plot', stock_data.columns, default=['close'])
+    checkboxes = st.multiselect('Select indicators to plot', stock_data.columns, default=['close', '30 day moving average'])
+    
     # create a plotly blank figure
     fig = px.line()
     for column in checkboxes:
         # add each column to the plotly figure
         fig.add_scatter(x=stock_data.index, y=stock_data[column], name=column)
-
     st.plotly_chart(fig, use_container_width=True)
 
-    # TODO add the earnings stock data histograms pulled from the database
     # add download button
     st.download_button('Download raw stock data', stock_data.to_csv(), f'{stock_ticker}_data.csv', 'text/csv')
-
 else:
-    st.subheader('No data for this stock exists in the database')
+    st.subheader('No price data for this stock exists in the database')
+
+
+# ------------------------------------- Earnings Data -------------------------------------
+st.header('Company earnings')
+# get the earnings data
+earnings_data = getStockEarnings(st.session_state.stock_refresh, stock_ticker)
+if not earnings_data.empty:
+    # create a bar plot of the earnings per share where the x axis is the fiscalDateEnding and the y axis is the reportedEPS include another column for the estimatedEPS
+    fig = px.bar(earnings_data, x='fiscalDateEnding', y=['reportedEPS', 'estimatedEPS'], barmode='group', labels={'fiscalDateEnding': 'Date', 'value': 'Earnings per share', 'variable': 'Labels'})
+    st.plotly_chart(fig, use_container_width=True)
+    # calculate the mean absolute error of the reported earnings per share and the estimated earnings per share
+    st.markdown(f"""
+    The average estimation error of the EPS in the past 2 years is {mean_absolute_error(earnings_data.dropna()['reportedEPS'], earnings_data.dropna()['estimatedEPS']):.2f}. 
+    And the next report date is: {earnings_data['reportedDate'].dt.date.iloc[0]}
+    """)
+    st.markdown(f"")
+    # now do the same but drop the hours, minutes and seconds
+    earnings_data['fiscalDateEnding'] = earnings_data['fiscalDateEnding'].dt.date
+    earnings_data['reportedDate'] = earnings_data['reportedDate'].dt.date
+    
+    # add download button
+    st.download_button('Download raw earnings data', earnings_data.to_csv(), f'{stock_ticker}_earnings_data.csv', 'text/csv')
+else:
+    st.subheader('No earnings data for this stock exists in the database')

@@ -64,13 +64,29 @@ def getStockData(refreshes, stock_list=["MSFT"], all_time=False) -> pd.DataFrame
             FROM Prices
             WHERE Date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND Prices.Stock IN ({','.join(stocks)});
             """
-
     # Query the database and load results into a pandas dataframe
     engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
     with engine.connect() as connection:
         dataframe = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date'])
 
     return dataframe
+
+
+st.cache_data(ttl=60*60*24)
+def getZscore(refreshes, stock_data) -> pd.DataFrame:
+    """
+    calculates the z-score of the volume of the last day for each stock in the stock_data dataframe
+    """
+    # convert the volume column to int
+    stock_data['volume'] = stock_data['volume'].astype(int)
+    # averaged volume of each stock
+    mean, std = stock_data.groupby('Stock')['volume'].mean(), stock_data.groupby('Stock')['volume'].std()
+    # drop all columns of stock data except for the volume and Stock
+    last_day_data = stock_data[['Stock', 'volume', 'Date']].groupby('Stock').last(len(stock_data['Stock'].unique()))
+    last_day_data['Stock'] = last_day_data.index
+    # subtract the values of volume in stock_data from the mean of the volume of the stock
+    last_day_data['Z-score'] = last_day_data.apply(lambda row: (row['volume'] - mean[row['Stock']]) / std[row['Stock']], axis=1)
+    return last_day_data
 
 
 refresh_sentiments = st.button('Refresh')
@@ -116,16 +132,7 @@ st.subheader('Trading volumes of the last day (higher = more volume than average
 # get the top stocks
 stock_data = getStockData(st.session_state.sentiment_refresh, top_stocks.index.to_list(), timeframe=='All Time')
 stock_data = stock_data.loc[stock_data.Date >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas['Monthly']))]
-# convert the volume column to int
-stock_data['volume'] = stock_data['volume'].astype(int)
-# averaged volume of each stock
-mean, std = stock_data.groupby('Stock')['volume'].mean(), stock_data.groupby('Stock')['volume'].std()
-# drop all columns of stock data except for the volume and Stock
-# last_day_data = stock_data[['Stock', 'volume']].groupby('Stock').last(len(stock_data['Stock'].unique()))
-last_day_data = stock_data[['Stock', 'volume', 'Date']].groupby('Stock').last(len(stock_data['Stock'].unique()))
-last_day_data['Stock'] = last_day_data.index
-# subtract the values of volume in stock_data from the mean of the volume of the stock
-last_day_data['Z-score'] = last_day_data.apply(lambda row: (row['volume'] - mean[row['Stock']]) / std[row['Stock']], axis=1)
+last_day_data = getZscore(st.session_state.sentiment_refresh, stock_data)
 # create a st table with the values of volume, where each value is color coded from red to green depending on the standard deviation column. where -1 is most red and 1 is most green
 st.bar_chart(data = last_day_data['Z-score'], use_container_width = True)
 
@@ -135,7 +142,6 @@ st.subheader(f'Most trending articles:')
 # get the input from the user
 stock_ticker = st.text_input(label = 'Type stock ticker below', value = 'AAPL')
 # get the sentiment data for the stock the user chose
-# stock_sentiment_data = sentiment_ticker_list[sentiment_ticker_list['stock'] == str.upper(stock_ticker)]
 stock_sentiment_data = sentiment_data[sentiment_data['stock'] == str.upper(stock_ticker)]
 # drop the hour from the index column
 stock_sentiment_data.index = stock_sentiment_data.index.strftime('%Y-%m-%d')
