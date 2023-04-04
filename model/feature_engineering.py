@@ -16,7 +16,7 @@ def add_moving_averages(df: pd.DataFrame, target: str = 'adjusted_close',
     spans is a list of what intervals it should average over, span_names will be the names of the columns
     if in_place = True the modifications are done to df directly, rather than to a copy
     """
-    if len(spans) == len(span_names):
+    if len(spans) != len(span_names):
         print("Error: spans and span_names have different lengths")
         return df
     if in_place:
@@ -36,7 +36,7 @@ def add_moving_highs(df: pd.DataFrame, target: str = 'adjusted_close',
     spans is a list of what intervals it should average over, span_names will be the names of the columns
     if in_place = True the modifications are done to df directly, rather than to a copy
     """
-    if len(spans) == len(span_names):
+    if len(spans) != len(span_names):
         print("Error: spans and span_names have different lengths")
         return df
     if in_place:
@@ -56,7 +56,7 @@ def add_moving_lows(df: pd.DataFrame, target: str = 'adjusted_close',
     spans is a list of what intervals it should average over, span_names will be the names of the columns
     if in_place = True the modifications are done to df directly, rather than to a copy
     """
-    if len(spans) == len(span_names):
+    if len(spans) != len(span_names):
         print("Error: spans and span_names have different lengths")
         return df
     if in_place:
