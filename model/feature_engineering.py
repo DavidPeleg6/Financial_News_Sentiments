@@ -27,6 +27,35 @@ def add_moving_averages(df: pd.DataFrame, target: str = 'adjusted_close',
         tar_df[name] = tar_df[target].rolling(span).mean()
     return tar_df
 
+def add_moving_peaks(df: pd.DataFrame, target: str = 'adjusted_close',
+        high_spans : list = consts.moving_highs,
+        high_span_names : list = consts.moving_highs_names,
+        low_spans : list = consts.moving_lows,
+        low_span_names : list = consts.moving_lows_names,
+        in_place = False) -> pd.DataFrame:
+    """
+    a combination of add_moving_highs and add_moving_lows
+    adds the new columns in an order that matches what dudu did in aws
+    """
+    if len(high_spans) != len(high_span_names):
+        print("Error: high spans and span_names have different lengths")
+        return df
+    if len(low_spans) != len(low_span_names):
+        print("Error: low spans and span_names have different lengths")
+        return df
+    if len(low_spans) != len(high_spans):
+        print("Error: low and high spans have different lengths")
+        return df
+    if in_place:
+        tar_df = df
+    else:
+        tar_df = df.copy()
+    # dumbass index based loop, yay
+    for i in range(len(high_spans)):
+        tar_df[high_span_names[i]] = tar_df[target].rolling(high_spans[i]).max()
+        tar_df[low_span_names[i]] = tar_df[target].rolling(low_spans[i]).max()
+    return tar_df
+
 def add_moving_highs(df: pd.DataFrame, target: str = 'adjusted_close',
         spans : list = consts.moving_highs,
         span_names : list = consts.moving_highs_names,
