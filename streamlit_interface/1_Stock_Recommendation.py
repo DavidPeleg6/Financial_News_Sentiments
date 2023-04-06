@@ -48,6 +48,10 @@ if not stock_data.empty:
     stock_data = stock_data.astype(float)
     predictions = predictions["close"].astype(float)
 
+    print("aaaaaaaaabbbaaaa")
+    print(predictions.head())
+    print("aaaaaaaaabbbbaaaa")
+
     # create a plotly figure of close price
     fig = px.line(title=f'\'{str.upper(stock_ticker)}\' stock price')
     # add close price to the plotly figure
