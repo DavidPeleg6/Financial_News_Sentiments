@@ -59,4 +59,4 @@ default_XGboost_params = {'n_estimators': 1000, 'early_stopping_rounds': 200,
                           'eval_metric': 'rmse', 'learning_rate': 0.1, 'max_depth': 10,
                           'subsample': 0.8, 'colsample_bytree': 0.8, 'random_state': 42}
 optuna_optimization_trials = 100
-test_months = 3
+test_months = 2
