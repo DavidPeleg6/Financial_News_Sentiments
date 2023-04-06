@@ -53,7 +53,7 @@ if not stock_data.empty:
     # add close price to the plotly figure
     fig.add_scatter(x=stock_data.index, y=stock_data['close'], name='close')
     # add predictions to the plotly figure
-    fig.add_scatter(x=stock_data.index, y=predictions['prediction'], name='prediction')
+    fig.add_scatter(x=stock_data.index, y=predictions['close'], name='prediction')
 
     st.plotly_chart(fig, use_container_width=True)
 
