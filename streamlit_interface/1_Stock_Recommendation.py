@@ -36,12 +36,12 @@ if 'recomm_refresh' not in st.session_state:
 
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = _default_stonk)
 
-a = get_predictions(stock_ticker)
-st.dataframe(a) # TODO: remove this when done testing
-st.text(a.columns)
+# a = get_predictions(stock_ticker)
+# st.dataframe(a) # TODO: remove this when done testing
+# st.text(a.columns)
 # this is just to see that data is being sent
 
-"""
+
 stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)
 if not stock_data.empty:
     # get datas
@@ -49,11 +49,7 @@ if not stock_data.empty:
     predictions = get_predictions(stock_ticker)
     # convert all the columns to floats except for the index column
     stock_data = stock_data.astype(float)
-    predictions = predictions["close"].astype(float)
-
-    print("aaaaaaaaabbbaaaa")
-    print(predictions.head())
-    print("aaaaaaaaabbbbaaaa")
+    predictions["close"] = predictions["close"].astype(float)
 
     # create a plotly figure of close price
     fig = px.line(title=f'\'{str.upper(stock_ticker)}\' stock price')
@@ -70,5 +66,3 @@ if not stock_data.empty:
 
 else:
     st.subheader('No data for this stock exists in the database')
-
-    """
