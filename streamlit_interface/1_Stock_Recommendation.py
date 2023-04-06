@@ -46,7 +46,7 @@ if not stock_data.empty:
     predictions = get_predictions(stock_ticker)
     # convert all the columns to floats except for the index column
     stock_data = stock_data.astype(float)
-    predictions = predictions.astype(float)
+    predictions = predictions["close"].astype(float)
 
     # create a plotly figure of close price
     fig = px.line(title=f'\'{str.upper(stock_ticker)}\' stock price')
