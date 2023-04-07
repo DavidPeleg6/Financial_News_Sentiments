@@ -36,11 +36,7 @@ if 'recomm_refresh' not in st.session_state:
 
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = _default_stonk)
 
-# a = get_predictions(stock_ticker)
-# st.dataframe(a) # TODO: remove this when done testing
-# st.text(a.columns)
-# this is just to see that data is being sent
-
+st.dataframe(get_predictions(stock_ticker))
 
 stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)
 if not stock_data.empty:

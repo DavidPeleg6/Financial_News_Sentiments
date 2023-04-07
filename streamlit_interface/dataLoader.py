@@ -116,8 +116,7 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
 
 _pred_days = 60 # days back from today to try and predict
 
-# TODO: uncomment this, it's disabled for testing purposes
-#@st.cache_data(ttl=60*60*24)
+# @st.cache_data(ttl=60*60*24) TODO: uncomment
 def get_predictions(token: str,
                    start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
                       end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
@@ -154,6 +153,8 @@ def get_predictions(token: str,
         # Parse JSON response and convert to Pandas DataFrame
         data = response['Payload'].read().decode('utf-8')
         df = pd.read_json(json.loads(data)["body"], orient='columns')
+        # shift the predictions by one day forward
+        # TODO: shift
         # Return the DataFrame
         return df
     else:
