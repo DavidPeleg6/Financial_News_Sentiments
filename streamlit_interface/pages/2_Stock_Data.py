@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import plotly.express as px
 from sklearn.metrics import mean_absolute_error
-from dataLoader import getPastStockPrices, convert_column_names, getStockEarnings
+from dataLoader import getPastStockPrices2, convert_column_names, getStockEarnings
 
 st.set_page_config(layout="wide")
 
@@ -28,7 +28,7 @@ if refresh_stocks:
 # ------------------------------------- Stock Data -------------------------------------
 st.header('Stock price')
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = 'AAPL')
-stock_data = getPastStockPrices(st.session_state.stock_refresh, stock_ticker, alltime=True)
+stock_data = getPastStockPrices2(st.session_state.stock_refresh, stock_ticker, alltime=True)
 if not stock_data.empty:
     stock_data = convert_column_names(stock_data)
     # convert all the columns to floats except for the index column
