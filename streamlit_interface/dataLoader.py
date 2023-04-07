@@ -122,6 +122,7 @@ def get_predictions(token: str,
                       end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
     # get stock predictions from aws by invoking the lambda function called 'model_get_predictions'
     # returns an empty dataframe if it fails
+    # note that if you request a prediction for days a to b, the prediction will contains the expected values for the dates a+1 to b+1
     start_s = start.strftime('%Y-%m-%d')
     end_s = end.strftime('%Y-%m-%d')
     payload = {
@@ -153,8 +154,6 @@ def get_predictions(token: str,
         # Parse JSON response and convert to Pandas DataFrame
         data = response['Payload'].read().decode('utf-8')
         df = pd.read_json(json.loads(data)["body"], orient='columns')
-        # shift the predictions by one day forward
-        # TODO: shift
         # Return the DataFrame
         return df
     else:

@@ -109,6 +109,8 @@ def get_data(token: str, start: datetime.date, end: datetime.date) -> pd.DataFra
         df = pd.DataFrame(data).drop(columns=['Stock'], errors='ignore')
         df = df.set_index('Date')
         df.index = pd.to_datetime(df.index)
+        # shift by one day
+        df.index = df.index + pd.Timedelta(days=1)
         df = df.sort_index(ascending=False)
     except Exception as e:
         print("Error:\t" + str(e))
