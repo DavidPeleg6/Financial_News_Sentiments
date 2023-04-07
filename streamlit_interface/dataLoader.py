@@ -6,7 +6,7 @@ import pymysql
 import datetime
 import boto3
 import json
-import requests
+from sqlalchemy import create_engine, text
 
 @st.cache_data(ttl=60*60*24)
 def getPastStockPrices(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
@@ -62,24 +62,26 @@ def getPastStockPrices(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
     stock_prices.sort_index(ascending=False, inplace=True)
     return stock_prices
 
-def convert_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """Converts the column names of a dataframe to more readable names.
+"""
+This version os the function was in stock_data.py, it might be different from the version here
+TODO: check wwith dudu to make sure that stock_data still works correctly
+
+@st.cache_data(ttl=60*60*24)
+def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) -> pd.DataFrame:
+    # ""
+    returns a pandas dataframe structured as follows:
+    company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
+    # ""
+    # get data from the past month unless specified to take the entire dataframe
+    query = f""SELECT * FROM Prices WHERE Stock = '{str.upper(stock)}';"" if alltime else f""
+            SELECT * FROM Prices Where Stock = '{str.upper(stock)}' and Date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH);""
     
-    Args:
-        df (pd.DataFrame): A dataframe.
-    
-    Returns:
-        pd.DataFrame: A dataframe with the column names converted.
-    """
-    # replace all spaces with underscores
-    df.columns = df.columns.str.replace('_', ' ')
-    df.columns = df.columns.str.replace('MA', 'moving average')
-    # convert all column names to lowercase
-    df.columns = df.columns.str.lower()
-    # sort columns by string length
-    df = df.reindex(sorted(df.columns, key=len), axis=1)
-    df.columns = df.columns.str.replace('adj', 'adjusted')
-    return df
+    # Query the database and load results into a pandas dataframe
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        stock_prices = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date']).drop(columns=['Stock']).set_index('Date').sort_index(ascending=False)
+    return stock_prices
+"""
 
 @st.cache_data(ttl=60*60*24)
 def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
@@ -114,9 +116,42 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
     dataframe = dataframe.set_index('time_published').sort_index(ascending=False)
     return dataframe
 
+"""
+This version os the function was in 3_News_Analysis.py, it might be different from the version here
+TODO: check wwith dudu to make sure that 3_News_Analysis still works correctly
+
+@st.cache_data(ttl=60*60*24)
+def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
+    ""
+    returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
+    the dataframe has the following columns:
+    Date, ticker_sentiment_score, ticker_sentiment_label, Stock, source, url, relevance_score
+    :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
+    :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
+    ""
+    # if st.session_state.OFFLINE:
+    #     sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
+    #     sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
+    #     return sentiment_data
+    
+    # get data from the past month unless specified to take the entire dataframe
+    query = ""SELECT *
+               FROM Sentiments
+               WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+            "" if not all_time else ""SELECT * FROM Sentiments""
+    
+    # Query the database and load results into a pandas dataframe
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data", echo=False)
+    with engine.connect() as connection:
+        dataframe = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['time_published']).set_index('time_published').sort_index(ascending=False)
+    
+    return dataframe
+
+"""
+
 _pred_days = 60 # days back from today to try and predict
 
-# @st.cache_data(ttl=60*60*24) TODO: uncomment
+@st.cache_data(ttl=60*60*24)
 def get_predictions(token: str,
                    start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
                       end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
@@ -161,6 +196,81 @@ def get_predictions(token: str,
         print('Error:', response['FunctionError'])
         return pd.DataFrame()
 
+@st.cache_data(ttl=60*60*24*30)
+def getStockEarnings(refresh_counter) -> pd.DataFrame:
+    """
+    returns two dataframes, one for the best earning in the past quarter and one for the best predicted earning
+    """
+    # get data from the past month unless specified to take the entire dataframe
+    earnings_query = f"""SELECT * FROM Earnings;"""
+    future_earnings_query = f"""SELECT * FROM FutureEarnings"""
+
+    # Query the database and load results into a pandas dataframe
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        earnings = pd.read_sql_query(sql=text(earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportedDate']).sort_values(by='fiscalDateEnding', ascending=False)
+        future_earnings = pd.read_sql_query(sql=text(future_earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportDate']).drop(columns=['currency']).rename(columns={'reportDate': 'reportedDate', 'estimate': 'estimatedEPS'})
+    
+    combined_earnings = pd.concat([earnings, future_earnings], axis=0, ignore_index=True)
+    sorted_earnings = combined_earnings.groupby('stock').apply(lambda x: x.sort_values(by='fiscalDateEnding')).reset_index(drop=True)
+    return sorted_earnings
+
+def convert_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Converts the column names of a dataframe to more readable names.
+    
+    Args:
+        df (pd.DataFrame): A dataframe.
+    
+    Returns:
+        pd.DataFrame: A dataframe with the column names converted.
+    """
+    # replace all spaces with underscores
+    df.columns = df.columns.str.replace('_', ' ')
+    df.columns = df.columns.str.replace('MA', 'moving average')
+    # convert all column names to lowercase
+    df.columns = df.columns.str.lower()
+    # sort columns by string length
+    df = df.reindex(sorted(df.columns, key=len), axis=1)
+    df.columns = df.columns.str.replace('adj', 'adjusted')
+    return df
+
+st.cache_data(ttl=60*60*24)
+def getStockData(refreshes, stock_list=["MSFT"], all_time=False) -> pd.DataFrame:
+    """
+    returns a dataframe with the stock data for the stocks, as taken from the AWS database.
+    the dataframe has the following columns:
+    """
+    stocks = [f"'{stock}'" for stock in stock_list]
+    # get data from the past month unless specified to take the entire dataframe
+    query = f"""SELECT * FROM Prices WHERE Prices.Stock IN ({','.join(stocks)});
+            """ if all_time else f"""
+            SELECT *
+            FROM Prices
+            WHERE Date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND Prices.Stock IN ({','.join(stocks)});
+            """
+    # Query the database and load results into a pandas dataframe
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        dataframe = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date'])
+
+    return dataframe
+
+
+st.cache_data(ttl=60*60*24)
+def getZscore(refreshes, stock_data) -> pd.DataFrame:
+    """
+    calculates the z-score of the volume of the last day for each stock in the stock_data dataframe
+    """
+    # convert the volume column to int
+    stock_data['volume'] = stock_data['volume'].astype(int)
+    # averaged volume of each stock
+    mean, std = stock_data.groupby('Stock')['volume'].mean(), stock_data.groupby('Stock')['volume'].std()
+    # drop all columns of stock data except for the volume and Stock
+    last_day_data = stock_data[['Stock', 'volume', 'Date']].groupby('Stock').last(len(stock_data['Stock'].unique()))
+    last_day_data['Stock'] = last_day_data.index
+    # subtract the values of volume in stock_data from the mean of the volume of the stock
+    last_day_data['Z-score'] = last_day_data.apply(lambda row: (row['volume'] - mean[row['Stock']]) / std[row['Stock']], axis=1)
+    return last_day_data
 
 """
 
