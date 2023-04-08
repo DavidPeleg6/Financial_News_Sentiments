@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import plotly.express as px
-from dataLoader import getPastStockPrices, convert_column_names, get_predictions, getStockEarnings
+from dataLoader import getPastStockPrices, convert_column_names, get_predictions, getStockEarnings2
 import numpy as np
 
 _default_stonk = 'MSFT'
@@ -91,7 +91,7 @@ number_of_stocks = st.slider(
     value = 20,
     step = 1, label_visibility='hidden')
 
-earnings = getStockEarnings(st.session_state.recomm_refresh)
+earnings = getStockEarnings2(st.session_state.recomm_refresh)
 # get only stocks that have more than 2 quarters of earnings data
 stocks_with_earnings = earnings.dropna().groupby('stock').filter(lambda x: len(x) > 2)
 # get the stocks that have better eps than their last quarter
