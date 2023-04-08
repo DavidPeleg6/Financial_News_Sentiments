@@ -34,7 +34,7 @@ time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30}
 if 'recomm_refresh' not in st.session_state:
     st.session_state.recomm_refresh = 0
 
-stock_ticker = st.text_input(label = 'Type ticker symbol below', value = _default_stonk)
+stock_ticker = st.text_input(label = 'Type ticker symbol below', value = _default_stonk).upper()
 
 stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)
 if not stock_data.empty:
