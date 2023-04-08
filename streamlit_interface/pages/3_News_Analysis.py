@@ -1,10 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import os
-from sqlalchemy import create_engine, text
-from dataLoader import getSentimentData, getStockData, getZscore
-# TODO: ask dudu wtf is getStockData, how is it different to getPastStockPrices
+from dataLoader import getStockData, getZscore, getSentimentData
 
 st.set_page_config(layout="wide")
 
@@ -12,17 +9,6 @@ time_step_options = ('Daily', 'Weekly', 'Monthly', 'All Time')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30, 'All Time': 365*20}
 if 'sentiment_refresh' not in st.session_state:
     st.session_state.sentiment_refresh = 0
-
-# try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
-try:
-    DB_ACCESS_KEY = pd.read_csv('streamlit_interface/db_key_pass.csv')
-    os.environ['ID'] = DB_ACCESS_KEY['ID'][0]
-    os.environ['PASS'] = DB_ACCESS_KEY['PASS'][0]
-    os.environ['URL'] = DB_ACCESS_KEY['URL'][0]
-except FileNotFoundError:
-    pass
-
-# st.session_state.OFFLINE = False
 
 refresh_sentiments = st.button('Refresh')
 if refresh_sentiments:

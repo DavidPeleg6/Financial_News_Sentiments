@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import plotly.express as px
 from sklearn.metrics import mean_absolute_error
-from dataLoader import convert_column_names, getStockEarnings2, getPastStockPrices
+from dataLoader import convert_column_names, getStockEarnings, getPastStockPrices
 from sqlalchemy import create_engine, text
 
 st.set_page_config(layout="wide")
@@ -84,7 +84,7 @@ else:
 # ------------------------------------- Earnings Data -------------------------------------
 st.header('Company earnings')
 # get the earnings data
-earnings_data = getStockEarnings2(st.session_state.stock_refresh, stock_ticker)
+earnings_data = getStockEarnings(st.session_state.stock_refresh, stock_ticker)
 if not earnings_data.empty:
     # create a bar plot of the earnings per share where the x axis is the fiscalDateEnding and the y axis is the reportedEPS include another column for the estimatedEPS
     fig = px.bar(earnings_data, x='fiscalDateEnding', y=['reportedEPS', 'estimatedEPS'], barmode='group', labels={'fiscalDateEnding': 'Date', 'value': 'Earnings per share', 'variable': 'Labels'})

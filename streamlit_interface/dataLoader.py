@@ -33,53 +33,11 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
     :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
     :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
     """
-    if st.session_state.OFFLINE:
-        sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
-        sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
-        return sentiment_data
-    
-    # Connect to the database
-    connection = pymysql.connect(
-        host=os.environ['URL'],
-        user=os.environ['ID'],
-        passwd=os.environ['PASS'],
-        db="stock_data"
-    )
     # get data from the past month unless specified to take the entire dataframe
     query = """SELECT *
                FROM Sentiments
                WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
-            """ if all_time else """SELECT * FROM Sentiments"""
-    # Query the database and load results into a pandas dataframe
-    dataframe = pd.read_sql_query(query, connection, parse_dates=['time_published'])
-    connection.close()
-    # dataframe['time_published'] = pd.to_datetime(dataframe['time_published'])
-    dataframe = dataframe.set_index('time_published').sort_index(ascending=False)
-    return dataframe
-
-"""
-This version os the function was in 3_News_Analysis.py, it might be different from the version here
-TODO: check wwith dudu to make sure that 3_News_Analysis still works correctly
-
-@st.cache_data(ttl=60*60*24)
-def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
-    ""
-    returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
-    the dataframe has the following columns:
-    Date, ticker_sentiment_score, ticker_sentiment_label, Stock, source, url, relevance_score
-    :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
-    :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
-    ""
-    # if st.session_state.OFFLINE:
-    #     sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
-    #     sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
-    #     return sentiment_data
-    
-    # get data from the past month unless specified to take the entire dataframe
-    query = ""SELECT *
-               FROM Sentiments
-               WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
-            "" if not all_time else ""SELECT * FROM Sentiments""
+            """ if not all_time else """SELECT * FROM Sentiments"""
     
     # Query the database and load results into a pandas dataframe
     engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data", echo=False)
@@ -88,11 +46,9 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
     
     return dataframe
 
-"""
-
 _pred_days = 60 # days back from today to try and predict
 
-# @st.cache_data(ttl=60*60*24) TODO: uncomment
+@st.cache_data(ttl=60*60*24)
 def get_predictions(token: str,
                    start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
                       end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
@@ -137,15 +93,16 @@ def get_predictions(token: str,
         print('Error:', json_data['body'])
         return pd.DataFrame()
 
+"""
 # this one is used in stock recommendations
 @st.cache_data(ttl=60*60*24*30)
 def getStockEarnings(refresh_counter) -> pd.DataFrame:
-    """
+    ""
     returns two dataframes, one for the best earning in the past quarter and one for the best predicted earning
-    """
+    ""
     # get data from the past month unless specified to take the entire dataframe
-    earnings_query = f"""SELECT * FROM Earnings;"""
-    future_earnings_query = f"""SELECT * FROM FutureEarnings"""
+    earnings_query = f"SELECT * FROM Earnings;"
+    future_earnings_query = f"SELECT * FROM FutureEarnings"
 
     # Query the database and load results into a pandas dataframe
     engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
@@ -156,16 +113,20 @@ def getStockEarnings(refresh_counter) -> pd.DataFrame:
     combined_earnings = pd.concat([earnings, future_earnings], axis=0, ignore_index=True)
     sorted_earnings = combined_earnings.groupby('stock').apply(lambda x: x.sort_values(by='fiscalDateEnding')).reset_index(drop=True)
     return sorted_earnings
+"""
 
 # this one is used in stock_data
 @st.cache_data(ttl=60*60*24*30)
-def getStockEarnings2(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
+def getStockEarnings(refresh_counter, stock: str = "") -> pd.DataFrame:
     """
     returns a dataframe with all the company's earnings data from the past 2 years along with prediction for the next quarter
     """
     # get data from the past month unless specified to take the entire dataframe
-    earnings_query = f"""SELECT * FROM Earnings WHERE stock = '{str.upper(stock)}';"""
-    future_earnings_query = f"""SELECT * FROM FutureEarnings WHERE stock = '{str.upper(stock)}';"""
+    earnings_query = "SELECT * FROM Earnings"
+    future_earnings_query = "SELECT * FROM FutureEarnings"
+    if stock != "":
+        earnings_query += f' WHERE stock = {str.upper(stock)}'
+        future_earnings_query += f" WHERE stock = {str.upper(stock)}"
 
     # Query the database and load results into a pandas dataframe
     engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
@@ -173,7 +134,10 @@ def getStockEarnings2(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
         earnings = pd.read_sql_query(sql=text(earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportedDate']).drop(columns=['stock']).sort_values(by='fiscalDateEnding', ascending=False)
         future_earnings = pd.read_sql_query(sql=text(future_earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportDate']).drop(columns=['stock', 'currency']).rename(columns={'reportDate': 'reportedDate', 'estimate': 'estimatedEPS'})
     
-    return pd.concat([earnings, future_earnings], axis=0, ignore_index=True).sort_values(by='fiscalDateEnding', ascending=False)
+    combined_earnings = pd.concat([earnings, future_earnings], axis=0, ignore_index=True)
+    if stock != "":
+        return combined_earnings.sort_values(by='fiscalDateEnding', ascending=False)
+    return combined_earnings.groupby('stock').apply(lambda x: x.sort_values(by='fiscalDateEnding')).reset_index(drop=True)
 
 # TODO: MERGE THE TWO FUNCTIONS ABOVE
 
@@ -217,7 +181,6 @@ def getStockData(refreshes, stock_list=["MSFT"], all_time=False) -> pd.DataFrame
 
     return dataframe
 
-
 st.cache_data(ttl=60*60*24)
 def getZscore(refreshes, stock_data) -> pd.DataFrame:
     """
@@ -238,6 +201,40 @@ def getZscore(refreshes, stock_data) -> pd.DataFrame:
 
 a buncha functions for loading locally stored data
 was used for some early testing, not used anymore
+
+old version, doesn't work anymore due to changes in the aws code
+@st.cache_data(ttl=60*60*24)
+def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
+    ""
+    returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
+    the dataframe has the following columns:
+    Date, ticker_sentiment_score, ticker_sentiment_label, Stock, source, url, relevance_score
+    :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
+    :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
+    ""
+    if st.session_state.OFFLINE:
+        sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
+        sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
+        return sentiment_data
+    
+    # Connect to the database
+    connection = pymysql.connect(
+        host=os.environ['URL'],
+        user=os.environ['ID'],
+        passwd=os.environ['PASS'],
+        db="stock_data"
+    )
+    # get data from the past month unless specified to take the entire dataframe
+    query = ""SELECT *
+               FROM Sentiments
+               WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+            "" if all_time else ""SELECT * FROM Sentiments""
+    # Query the database and load results into a pandas dataframe
+    dataframe = pd.read_sql_query(query, connection, parse_dates=['time_published'])
+    connection.close()
+    # dataframe['time_published'] = pd.to_datetime(dataframe['time_published'])
+    dataframe = dataframe.set_index('time_published').sort_index(ascending=False)
+    return dataframe
 
 # old version, doesn't work anymore due to changes in the aws code
 @st.cache_data(ttl=60*60*24)
@@ -277,7 +274,6 @@ def getPastStockPrices(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
             passwd=os.environ['PASS'],
             db="stock_data"
         )
-        # TODO make this also run for different intervals chosen by the user
         # get data from the past month unless specified to take the entire dataframe
         query = f""SELECT *
                 FROM Prices
