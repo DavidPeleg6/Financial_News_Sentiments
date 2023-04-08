@@ -2,14 +2,11 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
+from sqlalchemy import create_engine, text
+from dataLoader import getSentimentData, getStockData, getZscore
+# TODO: ask dudu wtf is getStockData, how is it different to getPastStockPrices
 
-import sys
- # setting path
-sys.path.append('../streamlit_interface')
- # importing
-from dataLoader import getSentimentData
-# from sqlalchemy import create_engine
-
+st.set_page_config(layout="wide")
 
 time_step_options = ('Daily', 'Weekly', 'Monthly', 'All Time')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30, 'All Time': 365*20}
@@ -22,11 +19,10 @@ try:
     os.environ['ID'] = DB_ACCESS_KEY['ID'][0]
     os.environ['PASS'] = DB_ACCESS_KEY['PASS'][0]
     os.environ['URL'] = DB_ACCESS_KEY['URL'][0]
-    st.session_state.OFFLINE = True
 except FileNotFoundError:
-    st.session_state.OFFLINE = False
+    pass
 
-st.session_state.OFFLINE = False
+# st.session_state.OFFLINE = False
 
 refresh_sentiments = st.button('Refresh')
 if refresh_sentiments:
@@ -46,7 +42,8 @@ number_of_stocks = st.slider(
     step = 1, label_visibility='hidden')
 # add another slider but hide min max values
 
-sentiment_ticker_list = getSentimentData(st.session_state.sentiment_refresh, timeframe!='All Time')
+# ------------------------------------- Get top sentiments and their values -------------------------------------
+sentiment_ticker_list = getSentimentData(st.session_state.sentiment_refresh, timeframe=='All Time')
 # convert data type to float
 sentiment_ticker_list['sentiment'] = pd.to_numeric(sentiment_ticker_list['sentiment'])
 
@@ -64,23 +61,42 @@ top_sentiment_data = sentiment_data[sentiment_data['stock'].isin(top_stocks.inde
 st.subheader('Average sentiment of most trending stocks (bullish = 1, bearish = -1)')
 st.bar_chart(data = top_sentiment_data.groupby('stock')['sentiment'].mean(), use_container_width = True)
 
-st.subheader('Mean sentiment score over time')
+
+# ------------------------------------- Get the change in volumes for each of the most trending stocks -------------------------------------
+st.subheader('Trading volumes of the last day (higher = more volume than average)')
+# get the top stocks
+stock_data = getStockData(st.session_state.sentiment_refresh, top_stocks.index.to_list(), timeframe=='All Time')
+stock_data = stock_data.loc[stock_data.Date >= (datetime.datetime.now() - datetime.timedelta(days=time_deltas['Monthly']))]
+last_day_data = getZscore(st.session_state.sentiment_refresh, stock_data)
+# create a st table with the values of volume, where each value is color coded from red to green depending on the standard deviation column. where -1 is most red and 1 is most green
+st.bar_chart(data = last_day_data['Z-score'], use_container_width = True)
+
+
+# ------------------------------------- Get a list of articles for a chosen stock -------------------------------------
+st.subheader(f'Most trending articles:')
 # get the input from the user
 stock_ticker = st.text_input(label = 'Type stock ticker below', value = 'AAPL')
 # get the sentiment data for the stock the user chose
-stock_sentiment_data = sentiment_ticker_list[sentiment_ticker_list['stock'] == str.upper(stock_ticker)]
+stock_sentiment_data = sentiment_data[sentiment_data['stock'] == str.upper(stock_ticker)]
 # drop the hour from the index column
 stock_sentiment_data.index = stock_sentiment_data.index.strftime('%Y-%m-%d')
-# create a table containing the daily mean sentiment score for the stock the user chose
-sentiment_over_time = stock_sentiment_data.groupby('time_published')['sentiment'].mean()
-# plot the table
-st.line_chart(data = sentiment_over_time, use_container_width = True)
+# get the top 10 rows with the highest relevance_score. filter out only articles that have a relevance score of at least 0.5
+top_articles = stock_sentiment_data[(stock_sentiment_data['relevance_score'] >= 0.3) & abs(stock_sentiment_data['sentiment'] >= 0.2)].sort_values(by='relevance_score', ascending=False).head(10)
 
-# in preperation for the last feature of volume x sentiment, here is the query to be used
-"""SELECT prices.stock_name FROM prices 
-WHERE prices.stock_name IN ('stock1', 'stock2', ...) 
-AND prices.volume > (SELECT AVG(prices.volume)*1.1 FROM prices.stocks);"""
+# create a list in st of urls to the articles
+for url in top_articles['article_url']:
+    # parse out the name of the article from the url
+    article_name = ' '.join(url.split('/')[-1].split('-'))
+    # create a link to the article, where the name is the name of the article
+    st.write(f'[{article_name}]({url})')
 
+# ------------------------------------- Get the change in sentiment over time for a chosen stock -------------------------------------
+if timeframe != 'Daily':
+    st.subheader(f'{stock_ticker} mean sentiment score over time')
+    # create a table containing the daily mean sentiment score for the stock the user chose
+    sentiment_over_time = stock_sentiment_data.groupby('time_published')['sentiment'].mean()
+    # plot the table
+    st.line_chart(data = sentiment_over_time, use_container_width = True)
 
 # add download button
 st.download_button('Download raw sentiment data', sentiment_ticker_list.to_csv(), 'sentiment_data.csv', 'text/csv')
