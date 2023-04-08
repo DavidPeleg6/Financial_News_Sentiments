@@ -8,7 +8,7 @@ import boto3
 import json
 from sqlalchemy import create_engine, text
 
-# @st.cache_data(ttl=60*60*24)
+@st.cache_data(ttl=60*60*24)
 def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) -> pd.DataFrame:
     """
     returns a pandas dataframe structured as follows:
@@ -92,7 +92,7 @@ def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
 
 _pred_days = 60 # days back from today to try and predict
 
-@st.cache_data(ttl=60*60*24)
+# @st.cache_data(ttl=60*60*24) TODO: uncomment
 def get_predictions(token: str,
                    start: datetime.date = datetime.datetime.now().date() - datetime.timedelta(days=_pred_days), 
                       end: datetime.date = datetime.datetime.now().date()) -> pd.DataFrame:
@@ -125,16 +125,16 @@ def get_predictions(token: str,
     response = lambda_client.invoke(FunctionName=os.environ['model_get_predictions_arn'],
                                     InvocationType='RequestResponse',
                                     Payload=json.dumps(payload).encode('utf-8'))
+    json_data = json.loads(response['Payload'].read().decode('utf-8'))
     # handle response
-    if response['StatusCode'] == 200:
+    if json_data['statusCode'] == 200:
         # Parse JSON response and convert to Pandas DataFrame
-        data = response['Payload'].read().decode('utf-8')
-        df = pd.read_json(json.loads(data)["body"], orient='columns')
+        df = pd.read_json(json_data["body"], orient='columns')
         # Return the DataFrame
         return df
     else:
         # Print error message and return None
-        print('Error:', response['FunctionError'])
+        print('Error:', json_data['body'])
         return pd.DataFrame()
 
 @st.cache_data(ttl=60*60*24*30)
