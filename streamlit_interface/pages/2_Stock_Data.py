@@ -4,6 +4,7 @@ import os
 import plotly.express as px
 from sklearn.metrics import mean_absolute_error
 from dataLoader import convert_column_names, getStockEarnings
+from sqlalchemy import create_engine, text
 
 st.set_page_config(layout="wide")
 
