@@ -8,7 +8,7 @@ import boto3
 import json
 from sqlalchemy import create_engine, text
 
-@st.cache_data(ttl=60*60*24)
+# @st.cache_data(ttl=60*60*24)
 def getPastStockPrices(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
     """
     returns a pandas dataframe structured as follows:
