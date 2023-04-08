@@ -39,10 +39,11 @@ st.write('This is a stock recommendation system that uses a combination of machi
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = _default_stonk)
 
 stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)
-if not stock_data.empty:
+predictions = get_predictions(stock_ticker)
+if not stock_data.empty and not predictions.empty:
     # get datas
     stock_data = convert_column_names(stock_data)
-    predictions = get_predictions(stock_ticker)
+    
     # convert all the columns to floats except for the index column
     stock_data = stock_data.astype(float)
     predictions["close"] = predictions["close"].astype(float)
@@ -59,7 +60,23 @@ if not stock_data.empty:
     # add download buttons
     st.download_button('Download raw stock data', stock_data.to_csv(), f'{stock_ticker}_data.csv', 'text/csv')
     st.download_button('Download raw prediction data', predictions.to_csv(), f'{stock_ticker}_data.csv', 'text/csv')
+elif not stock_data.empty:
+    st.subheader('Data for this stock exists but prediction failed')
+    # get datas
+    stock_data = convert_column_names(stock_data)
+    
+    # convert all the columns to floats except for the index column
+    stock_data = stock_data.astype(float)
 
+    # create a plotly figure of close price
+    fig = px.line(title=f'\'{str.upper(stock_ticker)}\' stock price')
+    # add close price to the plotly figure
+    fig.add_scatter(x=stock_data.index, y=stock_data['close'], name='close')
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # add download buttons
+    st.download_button('Download raw stock data', stock_data.to_csv(), f'{stock_ticker}_data.csv', 'text/csv')
 else:
     st.subheader('No data for this stock exists in the database')
 
