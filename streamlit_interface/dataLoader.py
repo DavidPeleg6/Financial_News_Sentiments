@@ -137,6 +137,7 @@ def get_predictions(token: str,
         print('Error:', json_data['body'])
         return pd.DataFrame()
 
+# this one is used in stock recommendations
 @st.cache_data(ttl=60*60*24*30)
 def getStockEarnings(refresh_counter) -> pd.DataFrame:
     """
@@ -155,6 +156,26 @@ def getStockEarnings(refresh_counter) -> pd.DataFrame:
     combined_earnings = pd.concat([earnings, future_earnings], axis=0, ignore_index=True)
     sorted_earnings = combined_earnings.groupby('stock').apply(lambda x: x.sort_values(by='fiscalDateEnding')).reset_index(drop=True)
     return sorted_earnings
+
+# this one is used in stock_data
+@st.cache_data(ttl=60*60*24*30)
+def getStockEarnings2(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
+    """
+    returns a dataframe with all the company's earnings data from the past 2 years along with prediction for the next quarter
+    """
+    # get data from the past month unless specified to take the entire dataframe
+    earnings_query = f"""SELECT * FROM Earnings WHERE stock = '{str.upper(stock)}';"""
+    future_earnings_query = f"""SELECT * FROM FutureEarnings WHERE stock = '{str.upper(stock)}';"""
+
+    # Query the database and load results into a pandas dataframe
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        earnings = pd.read_sql_query(sql=text(earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportedDate']).drop(columns=['stock']).sort_values(by='fiscalDateEnding', ascending=False)
+        future_earnings = pd.read_sql_query(sql=text(future_earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportDate']).drop(columns=['stock', 'currency']).rename(columns={'reportDate': 'reportedDate', 'estimate': 'estimatedEPS'})
+    
+    return pd.concat([earnings, future_earnings], axis=0, ignore_index=True).sort_values(by='fiscalDateEnding', ascending=False)
+
+# TODO: MERGE THE TWO FUNCTIONS ABOVE
 
 def convert_column_names(df: pd.DataFrame) -> pd.DataFrame:
     """Converts the column names of a dataframe to more readable names.
