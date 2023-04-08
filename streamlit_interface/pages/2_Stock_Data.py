@@ -2,8 +2,9 @@ import streamlit as st
 import pandas as pd 
 import os
 import plotly.express as px
-from sqlalchemy import create_engine, text
 from sklearn.metrics import mean_absolute_error
+from dataLoader import convert_column_names, getStockEarnings, getPastStockPrices
+from sqlalchemy import create_engine, text
 
 st.set_page_config(layout="wide")
 
@@ -21,15 +22,19 @@ try:
 except FileNotFoundError:
     pass
 
+refresh_stocks = st.button('Refresh')
+if refresh_stocks:
+    st.session_state.stock_refresh += 1
 
+# TODO: work with dudu to combine this with the other function in dataloader.py
 @st.cache_data(ttl=60*60*24)
-def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) -> pd.DataFrame:
+def getPastStockPrices2(refresh_counter, stock: str = 'MSFT', alltime = False) -> pd.DataFrame:
     """
     returns a pandas dataframe structured as follows:
     company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
     """
     # get data from the past month unless specified to take the entire dataframe
-    query = f"""SELECT * FROM Prices WHERE Stock = '{str.upper(stock)}';""" if alltime else f"""
+    query = f"""SELECT * FROM Prices WHERE Stock = '{str.upper(stock)}';"" if alltime else f""
             SELECT * FROM Prices Where Stock = '{str.upper(stock)}' and Date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH);"""
     
     # Query the database and load results into a pandas dataframe
@@ -37,45 +42,6 @@ def getPastStockPrices(refresh_counter, stock: str = 'MSFT', alltime = False) ->
     with engine.connect() as connection:
         stock_prices = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date']).drop(columns=['Stock']).set_index('Date').sort_index(ascending=False)
     return stock_prices
-
-
-@st.cache_data(ttl=60*60*24*30)
-def getStockEarnings(refresh_counter, stock: str = 'MSFT') -> pd.DataFrame:
-    """
-    returns a dataframe with all the company's earnings data from the past 2 years along with prediction for the next quarter
-    """
-    # get data from the past month unless specified to take the entire dataframe
-    earnings_query = f"""SELECT * FROM Earnings WHERE stock = '{str.upper(stock)}';"""
-    future_earnings_query = f"""SELECT * FROM FutureEarnings WHERE stock = '{str.upper(stock)}';"""
-
-    # Query the database and load results into a pandas dataframe
-    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
-    with engine.connect() as connection:
-        earnings = pd.read_sql_query(sql=text(earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportedDate']).drop(columns=['stock']).sort_values(by='fiscalDateEnding', ascending=False)
-        future_earnings = pd.read_sql_query(sql=text(future_earnings_query), con=connection, parse_dates=['fiscalDateEnding', 'reportDate']).drop(columns=['stock', 'currency']).rename(columns={'reportDate': 'reportedDate', 'estimate': 'estimatedEPS'})
-    
-    return pd.concat([earnings, future_earnings], axis=0, ignore_index=True).sort_values(by='fiscalDateEnding', ascending=False)
-
-
-def convert_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Converts the column names of a dataframe to more readable names. 
-    """
-    # replace all spaces with underscores
-    df.columns = df.columns.str.replace('_', ' ')
-    df.columns = df.columns.str.replace('MA', 'moving average')
-    # convert all column names to lowercase
-    df.columns = df.columns.str.lower()
-    # sort columns by string length
-    df = df.reindex(sorted(df.columns, key=len), axis=1)
-    df.columns = df.columns.str.replace('adj', 'adjusted')
-    return df
-
-
-refresh_stocks = st.button('Refresh')
-if refresh_stocks:
-    st.session_state.stock_refresh += 1
-
 
 # ------------------------------------- Stock Data -------------------------------------
 st.header('Stock price')
@@ -112,6 +78,7 @@ if not stock_data.empty:
     st.download_button('Download raw stock data', stock_data.to_csv(), f'{stock_ticker}_data.csv', 'text/csv')
 else:
     st.subheader('No price data for this stock exists in the database')
+
 
 
 # ------------------------------------- Earnings Data -------------------------------------

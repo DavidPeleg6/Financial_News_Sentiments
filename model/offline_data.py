@@ -73,10 +73,9 @@ def save_weekly_price(df: pd.DataFrame, token: str, FEed: bool = True):
         weekly_df.to_csv(f"{consts.folders['price']}/{token}_{weekly_data_extension}.csv", index=True, index_label='date')
         save_daily_price(df, token)
 
-def load_weekly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE: bool = True) -> pd.DataFrame:
+def load_weekly_price(df: pd.DataFrame, token: str, get_online: bool = True) -> pd.DataFrame:
     """
     load weekly stock data, if the data is not avilable offline and get_online = True download it first
-    if FE is set to true it will also apply feature engineering to the data before saving it
     returns an empty dataframe if it could not obtain data
     """
     try:
@@ -99,13 +98,7 @@ def load_weekly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE:
         if df.empty:
             print("Could not obtain online weekly price data for " + token)
             return pd.DataFrame()
-        if FE:
-            feature_engineering.add_moving_averages(df)
-            feature_engineering.add_moving_highs(df)
-            feature_engineering.add_moving_lows(df)
-            save_weekly_price(df, token, FEed = True)
-        else:
-            save_weekly_price(df, token, FEed = False)
+        save_weekly_price(df, token, FEed = True)
     return df
 
 def save_monthly_price(df: pd.DataFrame, token: str, FEed: bool = True):
@@ -130,10 +123,9 @@ def save_monthly_price(df: pd.DataFrame, token: str, FEed: bool = True):
         monthly_df.to_csv(f"{consts.folders['price']}/{token}_{monthly_data_extension}.csv", index=True, index_label='date')
         save_daily_price(df, token)
 
-def load_monthly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE: bool = True) -> pd.DataFrame:
+def load_monthly_price(df: pd.DataFrame, token: str, get_online: bool = True) -> pd.DataFrame:
     """
     load monthly stock data, if the data is not avilable offline and get_online = True download it first
-    if FE is set to true it will also apply feature engineering to the data before saving it
     returns an empty dataframe if it could not obtain data
     """
     try:
@@ -156,13 +148,7 @@ def load_monthly_price(df: pd.DataFrame, token: str, get_online: bool = True, FE
         if df.empty:
             print("Could not obtain online monthly price data for " + token)
             return pd.DataFrame()
-        if FE:
-            feature_engineering.add_moving_averages(df)
-            feature_engineering.add_moving_highs(df)
-            feature_engineering.add_moving_lows(df)
-            save_monthly_price(df, token, FEed = True)
-        else:
-            save_monthly_price(df, token, FEed = False)
+        save_monthly_price(df, token, FEed = False)
     return df
 
 def save_earnings_report(df: pd.DataFrame, token: str):

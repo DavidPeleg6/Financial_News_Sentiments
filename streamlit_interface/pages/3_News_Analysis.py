@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import os
-from sqlalchemy import create_engine, text
+from dataLoader import getStockData, getZscore, getSentimentData
 
 st.set_page_config(layout="wide")
 
@@ -10,84 +9,6 @@ time_step_options = ('Daily', 'Weekly', 'Monthly', 'All Time')
 time_deltas = {'Daily': 1, 'Weekly': 7, 'Monthly': 30, 'All Time': 365*20}
 if 'sentiment_refresh' not in st.session_state:
     st.session_state.sentiment_refresh = 0
-
-# try loading DB_ACCESS_KEY from csv file - useful when you run the app locally
-try:
-    DB_ACCESS_KEY = pd.read_csv('streamlit_interface/db_key_pass.csv')
-    os.environ['ID'] = DB_ACCESS_KEY['ID'][0]
-    os.environ['PASS'] = DB_ACCESS_KEY['PASS'][0]
-    os.environ['URL'] = DB_ACCESS_KEY['URL'][0]
-except FileNotFoundError:
-    pass
-
-# st.session_state.OFFLINE = False
-
-@st.cache_data(ttl=60*60*24)
-def getSentimentData(refreshes, all_time=False) -> pd.DataFrame:
-    """
-    returns a dataframe with the sentiment data for the stocks, as taken from the AWS database.
-    the dataframe has the following columns:
-    Date, ticker_sentiment_score, ticker_sentiment_label, Stock, source, url, relevance_score
-    :param time: the time at which the data was last updated. this is used to check if the cache needs to be updated
-    :param time_step: the time step at which the data is aggregated. can be 'Daily', 'Weekly', or 'Monthly'
-    """
-    # if st.session_state.OFFLINE:
-    #     sentiment_data = pd.read_csv("streamlit_interface/temp_data/sentiment_data.csv", ignore_index=True)
-    #     sentiment_data['time_published'] = pd.to_datetime(sentiment_data['time_published'])
-    #     return sentiment_data
-    
-    # get data from the past month unless specified to take the entire dataframe
-    query = """SELECT *
-               FROM Sentiments
-               WHERE time_published >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
-            """ if not all_time else """SELECT * FROM Sentiments"""
-    
-    # Query the database and load results into a pandas dataframe
-    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data", echo=False)
-    with engine.connect() as connection:
-        dataframe = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['time_published']).set_index('time_published').sort_index(ascending=False)
-    
-    return dataframe
-
-
-st.cache_data(ttl=60*60*24)
-def getStockData(refreshes, stock_list=["MSFT"], all_time=False) -> pd.DataFrame:
-    """
-    returns a dataframe with the stock data for the stocks, as taken from the AWS database.
-    the dataframe has the following columns:
-    """
-    stocks = [f"'{stock}'" for stock in stock_list]
-    # get data from the past month unless specified to take the entire dataframe
-    query = f"""SELECT * FROM Prices WHERE Prices.Stock IN ({','.join(stocks)});
-            """ if all_time else f"""
-            SELECT *
-            FROM Prices
-            WHERE Date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND Prices.Stock IN ({','.join(stocks)});
-            """
-    # Query the database and load results into a pandas dataframe
-    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
-    with engine.connect() as connection:
-        dataframe = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date'])
-
-    return dataframe
-
-
-st.cache_data(ttl=60*60*24)
-def getZscore(refreshes, stock_data) -> pd.DataFrame:
-    """
-    calculates the z-score of the volume of the last day for each stock in the stock_data dataframe
-    """
-    # convert the volume column to int
-    stock_data['volume'] = stock_data['volume'].astype(int)
-    # averaged volume of each stock
-    mean, std = stock_data.groupby('Stock')['volume'].mean(), stock_data.groupby('Stock')['volume'].std()
-    # drop all columns of stock data except for the volume and Stock
-    last_day_data = stock_data[['Stock', 'volume', 'Date']].groupby('Stock').last(len(stock_data['Stock'].unique()))
-    last_day_data['Stock'] = last_day_data.index
-    # subtract the values of volume in stock_data from the mean of the volume of the stock
-    last_day_data['Z-score'] = last_day_data.apply(lambda row: (row['volume'] - mean[row['Stock']]) / std[row['Stock']], axis=1)
-    return last_day_data
-
 
 refresh_sentiments = st.button('Refresh')
 if refresh_sentiments:

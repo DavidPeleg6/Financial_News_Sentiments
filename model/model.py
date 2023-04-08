@@ -10,10 +10,12 @@ import optuna
 from os import mkdir, path
 from sklearn.metrics import mean_squared_error
 import datetime
+import boto3, pickle
 
 import consts
 import offline_data
 from online_data import write_to_DDB
+import feature_engineering
 
 class overwrite_modes(Enum):
     NEVER = 1
@@ -80,7 +82,7 @@ def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
 
 
 def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True,
-              test_months: int = consts.test_months, gattai: bool = True,
+              test_months: int = consts.test_months, gattai: bool = True, FE: bool = True,
               print_acc: bool = False, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> xgb.XGBRegressor:
     """
     Parameters:
@@ -111,6 +113,9 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
     if df_copy.empty:
         print("Failed to load data for " + token)
         return None
+    if FE:
+        df_copy = feature_engineering.add_moving_averages(df_copy)
+        df_copy = feature_engineering.add_moving_peaks(df_copy)
     # raise the all the columns up by one day so that the model only gets the daily open price and
     # the rest of the data from yesterday
     for col in set(df_copy.columns) - {'close', 'open'}: df_copy[col] = df_copy[col][1:].shift(-1)
@@ -162,9 +167,14 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             error = mean_squared_error(y_test, y_pred, squared=False)
             return error
         optuna.logging.set_verbosity(optuna.logging.WARNING)
-        study = optuna.create_study(direction='minimize')
-        study.optimize(_objective, n_trials=consts.optuna_optimization_trials)
-        model = xgb.XGBRegressor(**study.best_params)
+        try:
+            study = optuna.create_study(direction='minimize')
+            study.optimize(_objective, n_trials=consts.optuna_optimization_trials)
+            model = xgb.XGBRegressor(**study.best_params)
+        except Exception as e:
+            print("Encountered error while making model for " + token)
+            print(str(e))
+            return None
     else:
         model = xgb.XGBRegressor(**consts.default_XGboost_params)
     model.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)], verbose=False)
@@ -188,7 +198,8 @@ def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = Tr
             _save_model_info(token, new_RMSE, test_months, optimize)
     return model
 
-def generate_models(token_list: list, optimize: bool = True, test_months: int = 3, gattai: bool = True,
+def generate_models(token_list: list, optimize: bool = True, test_months: int = 3,
+                    gattai: bool = True, FE: bool = True,
                     progress_bar: bool = True, overwrite_mode: overwrite_modes = overwrite_modes.BETTER) -> int:
     """
     Generates a model for each token in 'token_list' and saves them to the models folder
@@ -204,7 +215,7 @@ def generate_models(token_list: list, optimize: bool = True, test_months: int = 
         if progress_bar:
             iter += 1
             _printProgressBar(iteration = iter, total = total, prefix="Generating models.", suffix=token)
-        model = new_model(token = token, optimize = optimize, gattai=gattai,
+        model = new_model(token = token, optimize = optimize, gattai=gattai, FE = FE,
                           test_months = test_months, overwrite_mode = overwrite_mode)
         if model != None:
             sucsssusfull += 1
@@ -233,6 +244,53 @@ def load_model(token: str) -> xgb.XGBRegressor:
     if loaded_model == None:
         print("Model creation failed for " + token)
     return loaded_model
+
+_DDB_MAX_FILESIZE = 400000
+
+def write_models_to_DDB(token_list: list, progress_bar: bool = True):
+    # loads all models in 'tokens' and writes their binaries to DynamoDB
+    succsuss_count = 0
+    iter = 0
+    total = len(token_list)
+    dynamodb = boto3.resource('dynamodb',
+                              region_name='us-east-2',
+                              aws_access_key_id=consts.aws_access_key_id,
+                              aws_secret_access_key=consts.aws_secret_access_key)
+    table = dynamodb.Table("ModelsXGB")
+    with table.batch_writer() as batch:
+        for token in token_list:
+            if progress_bar:
+                iter += 1
+                _printProgressBar(iteration = iter, total = total, prefix=token, suffix="0/?")
+            # get model
+            file_path = f"{consts.folders['model']}/{token}.bin"
+            loaded_model = xgb.XGBRegressor()
+            try:
+                file_size = path.getsize(file_path)
+                if file_size > _DDB_MAX_FILESIZE:
+                    print(f"File {file_path} is too big for DDB ({file_size} bytes). Skipping.")
+                    continue
+                loaded_model.load_model(file_path)
+            except Exception as e:
+                loaded_model = new_model(token, gattai=False)
+            model_bytes = pickle.dumps(loaded_model)
+            # write it
+            try:
+                response = batch.put_item(
+                Item={
+                    'Stock': token,
+                    'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
+                    'Model': model_bytes
+                })
+                if progress_bar:
+                    _printProgressBar(iteration = iter, total = total, prefix=token, suffix="")
+            except Exception as e:
+                print("Unknown error when trying to process " + token)
+                print("Error msg:\t" + str(e))
+                continue
+            succsuss_count += 1
+        if progress_bar:
+            print(f"Uploaded models to ddb for {succsuss_count}/{total} tokens.")
 
 def predict_tomorrow(tokens: list, date: datetime.date, gattai: bool = True,) -> pd.DataFrame:
     """
