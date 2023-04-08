@@ -87,7 +87,7 @@ st.header('Company earnings')
 earnings_data = getStockEarnings(st.session_state.stock_refresh, stock_ticker)
 if not earnings_data.empty:
     # create a bar plot of the earnings per share where the x axis is the fiscalDateEnding and the y axis is the reportedEPS include another column for the estimatedEPS
-    fig = px.bar(earnings_data, x='fiscalDateEnding', y=['reported EPS', 'estimated EPS'], barmode='group', labels={'fiscalDateEnding': 'Date', 'value': 'Earnings per share', 'variable': 'Labels'})
+    fig = px.bar(earnings_data, x='fiscalDateEnding', y=['reportedEPS', 'estimatedEPS'], barmode='group', labels={'fiscalDateEnding': 'Date', 'value': 'Earnings per share', 'variable': 'Labels'})
     st.plotly_chart(fig, use_container_width=True)
     # calculate the mean absolute error of the reported earnings per share and the estimated earnings per share
     st.markdown(f"""
