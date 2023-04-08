@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import plotly.express as px
 from sklearn.metrics import mean_absolute_error
-from dataLoader import getPastStockPrices2, convert_column_names, getStockEarnings
+from dataLoader import convert_column_names, getStockEarnings
 
 st.set_page_config(layout="wide")
 
@@ -24,6 +24,23 @@ except FileNotFoundError:
 refresh_stocks = st.button('Refresh')
 if refresh_stocks:
     st.session_state.stock_refresh += 1
+
+# TODO: work with dudu to combine this with the other function in dataloader.py
+@st.cache_data(ttl=60*60*24)
+def getPastStockPrices2(refresh_counter, stock: str = 'MSFT', alltime = False) -> pd.DataFrame:
+    """
+    returns a pandas dataframe structured as follows:
+    company name, ticker, sentiment score, sentiment magnitude, sentiment score change, sentiment magnitude change
+    """
+    # get data from the past month unless specified to take the entire dataframe
+    query = f"""SELECT * FROM Prices WHERE Stock = '{str.upper(stock)}';"" if alltime else f""
+            SELECT * FROM Prices Where Stock = '{str.upper(stock)}' and Date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH);"""
+    
+    # Query the database and load results into a pandas dataframe
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        stock_prices = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date']).drop(columns=['Stock']).set_index('Date').sort_index(ascending=False)
+    return stock_prices
 
 # ------------------------------------- Stock Data -------------------------------------
 st.header('Stock price')
