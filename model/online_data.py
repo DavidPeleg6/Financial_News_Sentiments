@@ -52,7 +52,8 @@ def get_FE_price_data(token: str) -> pd.DataFrame:
         stock_prices = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date'])
         # make the date column lowercase
         stock_prices = stock_prices.rename(columns={'Date': 'date'})
-        stock_prices = stock_prices.drop(columns=['Stock']).set_index('Date').sort_index(ascending=False)
+        stock_prices = stock_prices.drop(columns=['Stock']).set_index('date').sort_index(ascending=False)
+        connection.close()
     return stock_prices
 
 def get_price_data(
