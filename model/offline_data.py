@@ -296,3 +296,37 @@ def load_gattai(token: str, get_online: bool = True) -> pd.DataFrame:
         print(f"Unkown error in {load_gattai.__name__}")
         return pd.DataFrame
     return df
+
+def save_FE_price(df: pd.DataFrame, token: str):
+    # save feature engineered price data
+    filename = f"{consts.folders['FEprice']}/{token}.csv"
+    try:
+        df.to_csv(filename, index=True, index_label='date')
+    except (FileNotFoundError, OSError):
+        mkdir(consts.folders['gattai'])
+        df.to_csv(filename, index=True, index_label='date')
+
+def load_FE_price(token: str, get_online: bool = True) -> pd.DataFrame:
+    """
+    returns the feature engineered price data
+    if the data is not avilable offline and get_online = True download it from RDS
+    returns an empty dataframe if it could not obtain data
+    """
+    filename = f"{consts.folders['FEprice']}/{token}.csv"
+    try:
+        df = pd.read_csv(filename, index_col=0)
+    except (FileNotFoundError, OSError):
+        if not get_online:
+            print("No offline FE price data available for " + token)
+            return pd.DataFrame()
+        df = online_data.get_FE_price_data(token)
+        if df.empty:
+            return pd.DataFrame()
+        save_FE_price(df, token)
+    except ValueError as e:
+        print("ValueError: " + str(e))
+        return pd.DataFrame()
+    except:
+        print(f"Unkown error in {load_FE_price.__name__}")
+        return pd.DataFrame
+    return df

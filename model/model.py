@@ -17,10 +17,14 @@ import offline_data
 from online_data import write_to_DDB
 import feature_engineering
 
+_DDB_MAX_FILESIZE = 400000
+
 class overwrite_modes(Enum):
     NEVER = 1
     BETTER = 2
     ALWAYS = 3
+
+# ============================= misc functions
 
 def _printProgressBar(iteration: int, total: int, prefix: str = '', suffix: str = '',
                       decimals: int = 1, length: int = 100, fill: str = '█', printEnd: str = "\r"):
@@ -80,6 +84,7 @@ def _save_model_info(token: str, RMSE: float, test_months: int, optimize: bool):
         df[df["token"] == token] = new_data
         df.to_csv(filename, index=False)
 
+# ============================= functions for first gen models (models)
 
 def new_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True,
               test_months: int = consts.test_months, gattai: bool = True, FE: bool = True,
@@ -224,6 +229,7 @@ def generate_models(token_list: list, optimize: bool = True, test_months: int = 
     print(f"Succsusfully trained {sucsssusfull}/{total} models.")
     print("Failed to create a model for the following tokens:")
     print(failed_list)
+    return sucsssusfull
 
 def load_model(token: str) -> xgb.XGBRegressor:
     """
@@ -245,10 +251,9 @@ def load_model(token: str) -> xgb.XGBRegressor:
         print("Model creation failed for " + token)
     return loaded_model
 
-_DDB_MAX_FILESIZE = 400000
-
-def write_models_to_DDB(token_list: list, progress_bar: bool = True):
+def write_models_to_DDB(token_list: list, progress_bar: bool = True) -> int:
     # loads all models in 'tokens' and writes their binaries to DynamoDB
+    # returns the number of models succsussfully uploaded
     succsuss_count = 0
     iter = 0
     total = len(token_list)
@@ -256,7 +261,7 @@ def write_models_to_DDB(token_list: list, progress_bar: bool = True):
                               region_name='us-east-2',
                               aws_access_key_id=consts.aws_access_key_id,
                               aws_secret_access_key=consts.aws_secret_access_key)
-    table = dynamodb.Table("ModelsXGB")
+    table = dynamodb.Table(consts.model_table_names['xgbV1'])
     with table.batch_writer() as batch:
         for token in token_list:
             if progress_bar:
@@ -273,6 +278,10 @@ def write_models_to_DDB(token_list: list, progress_bar: bool = True):
                 loaded_model.load_model(file_path)
             except Exception as e:
                 loaded_model = new_model(token, gattai=False)
+                file_size = path.getsize(file_path)
+                if file_size > _DDB_MAX_FILESIZE:
+                    print(f"File {file_path} is too big for DDB ({file_size} bytes). Skipping.")
+                    continue
             model_bytes = pickle.dumps(loaded_model)
             # write it
             try:
@@ -282,8 +291,6 @@ def write_models_to_DDB(token_list: list, progress_bar: bool = True):
                     'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
                     'Model': model_bytes
                 })
-                if progress_bar:
-                    _printProgressBar(iteration = iter, total = total, prefix=token, suffix="")
             except Exception as e:
                 print("Unknown error when trying to process " + token)
                 print("Error msg:\t" + str(e))
@@ -291,6 +298,198 @@ def write_models_to_DDB(token_list: list, progress_bar: bool = True):
             succsuss_count += 1
         if progress_bar:
             print(f"Uploaded models to ddb for {succsuss_count}/{total} tokens.")
+    return succsuss_count
+
+# ============================= functions for second gen models (v2_models)
+
+def new_v2_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True,
+                 days_ahead = consts.days_ahead, test_months: int = consts.test_months,
+                 print_acc: bool = False) -> xgb.XGBRegressor:
+    """
+    generate a v2 model for the stock 'token', using feature engineered data from RDS
+    this type of model also uses the current day close value, and can predict for multiple days ahead
+
+    If for whatever reason model creation fails, None is returned
+    """
+    if df.empty:
+        df_copy = offline_data.load_FE_price(token)
+    else:
+        df_copy = df.copy()
+    if df_copy.empty:
+        print("Failed to load data for " + token)
+        return None
+    # add the close price for each day 'days_ahead' forward
+    for day in range(1, days_ahead + 1):
+        df_copy[f'close_in_{day}_days'] = df_copy['close'][:-day]
+    # get rid of nans
+    df_copy = df_copy.dropna(axis=0)
+    # convert index to datetime format
+    df_copy.index = pd.to_datetime(df_copy.index)
+    df_copy.sort_index(ascending=False, inplace=True)
+    # convert all columns to numeric except for the index
+    df_copy = df_copy.apply(pd.to_numeric, errors='ignore')
+    df_copy = df_copy.dropna(axis=0)
+    # get all times before the test_months months
+    train_df_copy = df_copy[df_copy.index <= df_copy.index.max() - pd.DateOffset(months=test_months)]
+    test_df_copy =  df_copy[df_copy.index >= df_copy.index.max() - pd.DateOffset(months=test_months)]
+
+    # split to X and y
+    tar_col = [f'close_in_{day}_days' for day in range(1, days_ahead + 1)]
+    leak_col = [] # ain't any, it can stay
+    X_train, y_train = train_df_copy.drop(columns=tar_col + leak_col), train_df_copy[tar_col]
+    X_test, y_test = test_df_copy.drop(columns=tar_col + leak_col), test_df_copy[tar_col]
+
+    if optimize:
+        def _objective(trial):
+            # objective function used by optuna
+            params = {
+                'objective': 'reg:squarederror',
+                'eval_metric': 'rmse',
+                'booster': 'gbtree',
+                'n_jobs': -1,
+                'verbosity': 0,
+                'eta': trial.suggest_float('eta', 1e-5, 1),
+                'max_depth': trial.suggest_int('max_depth', 3, 10),
+                'subsample': trial.suggest_float('subsample', 0.1, 1),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.1, 1),
+                'gamma': trial.suggest_float('gamma', 1e-5, 1),
+                'min_child_weight': trial.suggest_float('min_child_weight', 1e-5, 100),
+                'reg_alpha': trial.suggest_float('reg_alpha', 1e-5, 100),
+                'reg_lambda': trial.suggest_float('reg_lambda', 1e-5, 100)
+            }
+            
+            # Train the model
+            model = xgb.XGBRegressor(**params)
+            model.fit(X_train, y_train, verbose=False)
+            # Evaluate the model on the testation set
+            y_pred = model.predict(X_test)
+            error = mean_squared_error(y_test, y_pred, squared=True)
+            return error
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        try:
+            study = optuna.create_study(direction='minimize')
+            study.optimize(_objective, n_trials=consts.optuna_optimization_trials)
+            model = xgb.XGBRegressor(**study.best_params)
+        except Exception as e:
+            print("Encountered error while making model for " + token)
+            print(str(e))
+            return None
+    else:
+        model = xgb.XGBRegressor(**consts.default_XGboost_params)
+    model.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)], verbose=False)
+    new_RMSE = np.sqrt(mean_squared_error(y_test, model.predict(X_test)))
+    if print_acc:
+        print(f'{token}\tmodel RMSE:\t{new_RMSE:.4f}')
+    filename = f"{consts.folders['modelV2']}/{token}.bin"
+    try:
+        model.save_model(filename)
+    except (FileNotFoundError, OSError):
+        mkdir(consts.folders['modelV2'])
+        model.save_model(filename)
+    except Exception as e:
+        print("Unhandeled error when attempting to save v2 model for " + token)
+        print(str(e))
+        return None
+    return model
+    
+def generate_v2_models(token_list: list, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True,
+                 days_ahead = consts.days_ahead, test_months: int = consts.test_months,
+                 print_acc: bool = False, progress_bar: bool = True,) -> int:
+    """
+    Generates a v2 model for each token in 'token_list' and saves them to the v2 models folder
+    if progress_bar = True it shows progress using a bar
+
+    it returns the number of succsussfully generated models
+    """
+    sucsssusfull = 0
+    failed_list = []
+    iter = 0
+    total = len(token_list)
+    for token in token_list:
+        if progress_bar:
+            iter += 1
+            _printProgressBar(iteration = iter, total = total, prefix="Gen v2models.", suffix=token)
+        model = new_v2_model(token=token, optimize = optimize, days_ahead = days_ahead,
+                             test_months = test_months, print_acc = False)
+        if model != None:
+            sucsssusfull += 1
+        else:
+            failed_list.append(token)
+    print(f"Succsusfully trained {sucsssusfull}/{total} models.")
+    print("Failed to create a model for the following tokens:")
+    print(failed_list)
+    return sucsssusfull
+
+def load_v2_model(token: str) -> xgb.XGBRegressor:
+    """
+    loads a v2 model for the stock 'token'
+    If a v2 model doesn't exist, it will attempt to create one using new_v2_model
+    if that fails, None is returned
+    """
+    loaded_model = xgb.XGBRegressor()
+    try:
+        loaded_model.load_model(f"{consts.folders['modelV2']}/{token}.bin")
+    except (FileNotFoundError, OSError):
+        # the folder doesn't exist, make it and make the model
+        mkdir(consts.folders['modelV2'])
+        loaded_model = new_v2_model(token)
+    except xgb.core.XGBoostError:
+        # the model doesn't exist, make one
+        loaded_model = new_v2_model(token)
+    if loaded_model == None:
+        print("Model creation failed for " + token)
+    return loaded_model
+
+def write_v2_models_to_DDB(token_list: list, progress_bar: bool = True) -> int:
+    # loads all v2 models in 'tokens' and writes their binaries to DynamoDB
+    # returns the number of models succsussfully uploaded
+    succsuss_count = 0
+    iter = 0
+    total = len(token_list)
+    dynamodb = boto3.resource('dynamodb',
+                              region_name='us-east-2',
+                              aws_access_key_id=consts.aws_access_key_id,
+                              aws_secret_access_key=consts.aws_secret_access_key)
+    table = dynamodb.Table(consts.model_table_names['xgbV2'])
+    with table.batch_writer() as batch:
+        for token in token_list:
+            if progress_bar:
+                iter += 1
+                _printProgressBar(iteration = iter, total = total, prefix=token, suffix="v2")
+            # get model
+            file_path = f"{consts.folders['modelV2']}/{token}.bin"
+            loaded_model = xgb.XGBRegressor()
+            try:
+                file_size = path.getsize(file_path)
+                if file_size > _DDB_MAX_FILESIZE:
+                    print(f"File {file_path} is too big for DDB ({file_size} bytes). Skipping.")
+                    continue
+                loaded_model.load_model(file_path)
+            except Exception as e:
+                loaded_model = new_v2_model(token, gattai=False)
+                file_size = path.getsize(file_path)
+                if file_size > _DDB_MAX_FILESIZE:
+                    print(f"File {file_path} is too big for DDB ({file_size} bytes). Skipping.")
+                    continue
+            model_bytes = pickle.dumps(loaded_model)
+            # write it
+            try:
+                response = batch.put_item(
+                Item={
+                    'Stock': token,
+                    'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
+                    'Model': model_bytes
+                })
+            except Exception as e:
+                print("Unknown error when trying to process " + token)
+                print("Error msg:\t" + str(e))
+                continue
+            succsuss_count += 1
+        if progress_bar:
+            print(f"Uploaded v2 models to ddb for {succsuss_count}/{total} tokens.")
+    return succsuss_count
+
+# ============================= Old, unused functions
 
 def predict_tomorrow(tokens: list, date: datetime.date, gattai: bool = True,) -> pd.DataFrame:
     """

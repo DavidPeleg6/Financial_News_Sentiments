@@ -13,10 +13,10 @@ import pandas as pd
 import requests
 import boto3
 import logging
+from sqlalchemy import create_engine, text
+import os
 
 import consts
-
-
 
 def _get_data(parameters):
     """
@@ -35,6 +35,25 @@ def _get_data(parameters):
             data = None
             sleep(1)
     return data
+
+def get_FE_price_data(token: str) -> pd.DataFrame:
+    """
+    download all avilable data for the stock 'token' from RDS
+    the data is assumed to have already beed feature engineered (running averages, etc)
+    if the function fails for whatever reason, an empty dataframe is returned instead
+    """
+    print("a")
+    query = f"""SELECT * FROM Prices WHERE Stock = '{str.upper(token)}';"""
+    
+    # Query the database and load results into a pandas dataframe
+    engine = create_engine(f"mysql+pymysql://{os.environ['ID']}:{os.environ['PASS']}@{os.environ['URL']}/stock_data")
+    with engine.connect() as connection:
+        # get the data
+        stock_prices = pd.read_sql_query(sql=text(query), con=connection, parse_dates=['Date'])
+        # make the date column lowercase
+        stock_prices = stock_prices.rename(columns={'Date': 'date'})
+        stock_prices = stock_prices.drop(columns=['Stock']).set_index('Date').sort_index(ascending=False)
+    return stock_prices
 
 def get_price_data(
     token: str, function: str = 'TIME_SERIES_DAILY_ADJUSTED', outputsize: str = 'full') -> pd.DataFrame:

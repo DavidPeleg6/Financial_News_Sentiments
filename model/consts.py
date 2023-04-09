@@ -20,6 +20,10 @@ if not aws:
 price_data_source = "https://www.alphavantage.co/query"
 financial_sheets_functions = ['OVERVIEW', 'INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW', 'EARNINGS']
 # TODO: right now only 'EARNINGS' is actually used for anything, maybe use the other stuff too?
+model_table_names = {
+    'xgbV1': 'ModelsXGB',
+    'xgbV2': 'ModelsXGBV2'
+}
 
 # df column names
 stock_col_names = ['open', 'high', 'low', 'close', 'adjusted_close',
@@ -41,7 +45,9 @@ folders = {
     'sentiments': 'sentiment_data',
     # gattai means combine in weeb, as in it's what big robots do to become bigger robots
     'gattai': 'gattai_data',
-    'model': 'model_data'
+    'model': 'model_data',
+    'modelV2': 'model_v2_data',
+    'FEprice': 'FE_price_data'
     }
 all_news_sentiments_filename = "__all__"
 model_data_filename = 'info'
@@ -60,3 +66,4 @@ default_XGboost_params = {'n_estimators': 1000, 'early_stopping_rounds': 200,
                           'subsample': 0.8, 'colsample_bytree': 0.8, 'random_state': 42}
 optuna_optimization_trials = 100
 test_months = 2
+days_ahead = 1
