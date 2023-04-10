@@ -349,7 +349,7 @@ def new_v2_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool =
                 'n_jobs': -1,
                 'verbosity': 0,
                 'eta': trial.suggest_float('eta', 1e-5, 1),
-                'max_depth': trial.suggest_int('max_depth', 3, 10),
+                'max_depth': trial.suggest_int('max_depth', 3, 7),
                 'subsample': trial.suggest_float('subsample', 0.1, 1),
                 'colsample_bytree': trial.suggest_float('colsample_bytree', 0.1, 1),
                 'gamma': trial.suggest_float('gamma', 1e-5, 1),
@@ -365,7 +365,7 @@ def new_v2_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool =
             y_pred = model.predict(X_test)
             error = mean_squared_error(y_test, y_pred, squared=True)
             return error
-        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        optuna.logging.set_verbosity(optuna.logging.ERROR)
         try:
             study = optuna.create_study(direction='minimize')
             study.optimize(_objective, n_trials=consts.optuna_optimization_trials)
@@ -394,7 +394,7 @@ def new_v2_model(token: str, df: pd.DataFrame = pd.DataFrame(), optimize: bool =
     
 def generate_v2_models(token_list: list, df: pd.DataFrame = pd.DataFrame(), optimize: bool = True,
                  days_ahead = consts.days_ahead, test_months: int = consts.test_months,
-                 print_acc: bool = False, progress_bar: bool = True,) -> int:
+                 progress_bar: bool = True,) -> int:
     """
     Generates a v2 model for each token in 'token_list' and saves them to the v2 models folder
     if progress_bar = True it shows progress using a bar
@@ -440,7 +440,7 @@ def load_v2_model(token: str) -> xgb.XGBRegressor:
         print("Model creation failed for " + token)
     return loaded_model
 
-def write_v2_models_to_DDB(token_list: list, progress_bar: bool = True) -> int:
+def write_v2_models_to_DDB(token_list: list, progress_bar: bool = True, batch_write: bool = False) -> int:
     # loads all v2 models in 'tokens' and writes their binaries to DynamoDB
     # returns the number of models succsussfully uploaded
     succsuss_count = 0
@@ -466,7 +466,7 @@ def write_v2_models_to_DDB(token_list: list, progress_bar: bool = True) -> int:
                     continue
                 loaded_model.load_model(file_path)
             except Exception as e:
-                loaded_model = new_v2_model(token, gattai=False)
+                loaded_model = new_v2_model(token)
                 file_size = path.getsize(file_path)
                 if file_size > _DDB_MAX_FILESIZE:
                     print(f"File {file_path} is too big for DDB ({file_size} bytes). Skipping.")
@@ -474,12 +474,20 @@ def write_v2_models_to_DDB(token_list: list, progress_bar: bool = True) -> int:
             model_bytes = pickle.dumps(loaded_model)
             # write it
             try:
-                response = batch.put_item(
-                Item={
-                    'Stock': token,
-                    'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
-                    'Model': model_bytes
-                })
+                if batch_write:
+                    response = batch.put_item(
+                    Item={
+                        'Stock': token,
+                        'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
+                        'Model': model_bytes
+                    })
+                else:
+                    response = table.put_item(
+                    Item={
+                        'Stock': token,
+                        'Date': datetime.datetime.now().strftime('%Y-%m-%d'),
+                        'Model': model_bytes
+                    })
             except Exception as e:
                 print("Unknown error when trying to process " + token)
                 print("Error msg:\t" + str(e))
