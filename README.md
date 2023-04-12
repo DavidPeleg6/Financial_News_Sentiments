@@ -11,12 +11,13 @@ Therefor, the first feature of the tool collects over 1000 articles daily and ex
 While the tech giants are obviously the most trending compnies, the feature also unveils stocks that a noob trader such as myself wouldnt think to look at (because who has time to read about every company in the S&P500).
 
 The next step is a feature to display the company's financial data. 
-While stock prices, moving averages, highs, and lows are important indicators to consider, more experienced traders may also focus on additional features such as income statements, quarterly earnings, and balance sheets. As such, the tool will provide these features for a more comprehensive analysis.
+While stock prices, moving averages, highs, and lows are important indicators to consider, more experienced traders may also focus on additional features such as EPS, income statements, quarterly earnings, and balance sheets. As such, the tool will provide these features for a more comprehensive analysis.
+While the some of the features are WIP, the EPS tool suggests companies that had the largest EPS delta compared to the previous quarter, suggesting that a stock price change might be coming up.
 
 Now for more buzzwords - AI. 
 Every major platform I encountered used a cryptic grading system, often a simple "this is the combined recommendation of our analysts", which is usually hidden behind a paywall.
 And since there are machine learning approaches for time series prediction, the required feature should let me:
-1. Choose a model for stock prediction (could vary from random forests and ARIMA to LSTMs and Transformers)
+1. Choose a model for stock prediction (could vary from random forests and ARIMA to LSTMs and Transformers) (WIP)
 2. Get the performance of the model - not only in niche terms such as RMSE or R^2, but in terms of actual profit I could make by using the model
 
 And the final requirement - I want a product, not a github repo gathering dust.
