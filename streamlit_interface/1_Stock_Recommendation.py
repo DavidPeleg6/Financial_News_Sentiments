@@ -30,13 +30,14 @@ except FileNotFoundError:
 
 st.title('Financial Stock Recommendation System')
 
-st.write('This is a stock recommendation system that uses a combination of machine learning and news sentiment analysis to recommend stocks to buy.')
 # st.write(""" The recommendation system is still under development,
 # so the results are not guaranteed to be accurate. in the meantime,
 # you can use the navigation bar on the left to explore the other features of the app.""")
 
 # ------------------------ EPS based recommendation ------------------------------------
 st.header("EPS based recommendation")
+st.write('Since the most impacting factor on the stock price per quarter is the earnings per share (EPS), we can use the latest reported EPS to recommend stocks to buy.')
+st.write('The following table shows the stocks with the best growth in EPS in the past quarter. The growth is calculated by the difference between the latest reported EPS and the EPS of the previous quarter.')
 
 number_of_stocks = st.slider(
     label = 'eps_stocks',
@@ -70,6 +71,7 @@ st.markdown('please note that the stock price is affected mostly by the predicte
 
 # ------------------------ XGBOOST based recommendation ---------------------------------
 st.header("Machine Learning based recommendation")
+st.write('This is a stock recommendation system that uses a combination of machine learning and news sentiment analysis to recommend stocks to buy.')
 
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = _default_stonk)
 
