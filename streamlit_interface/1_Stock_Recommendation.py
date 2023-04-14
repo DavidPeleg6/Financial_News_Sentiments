@@ -35,7 +35,42 @@ st.write('This is a stock recommendation system that uses a combination of machi
 # so the results are not guaranteed to be accurate. in the meantime,
 # you can use the navigation bar on the left to explore the other features of the app.""")
 
+# ------------------------ EPS based recommendation ------------------------------------
+st.header("EPS based recommendation")
+
+number_of_stocks = st.slider(
+    label = 'eps_stocks',
+    min_value = 5,
+    max_value = 40,
+    value = 20,
+    step = 1, label_visibility='hidden')
+
+earnings = getStockEarnings2(st.session_state.recomm_refresh)
+# get only stocks that have more than 2 quarters of earnings data
+stocks_with_earnings = earnings.dropna().groupby('stock').filter(lambda x: len(x) > 2)
+# get the stocks that have better eps than their last quarter
+best_earnings = stocks_with_earnings.groupby('stock').apply(lambda x: x.iloc[0]['reportedEPS'] > x.iloc[1]['reportedEPS'])
+# get a subset of the dataframe that only contains the stocks that have better eps than their last quarter
+best_earnings = stocks_with_earnings[stocks_with_earnings['stock'].isin(best_earnings[best_earnings].index)]
+# for each stock get the latest diff in eps and create column for the diff in percent calculated by the previous reportedEPS.
+best_earnings['diff'] = best_earnings.groupby('stock')['reportedEPS'].diff()
+best_earnings['diff_percent'] = best_earnings['diff'] / best_earnings.shift(1)['reportedEPS']
+# get only the latest diff in eps for each stock
+best_earnings = best_earnings.dropna().groupby('stock').apply(lambda x: x.iloc[-1]).sort_values(by='diff_percent', ascending=False)
+# drop inf values
+best_earnings = best_earnings.replace([np.inf, -np.inf], np.nan).dropna()
+
+# plot a bar chart of the percent diff in eps using plotly. the y axis ticks should be in percent, and without points after the decimal
+fig = px.bar(best_earnings.head(number_of_stocks), x='stock', y='diff_percent', title='Best EPS growth in the past quarter', labels={'stock': 'Stock', 'diff_percent': 'EPS growth'})
+fig.update_yaxes(tickformat=".0%")
+st.plotly_chart(fig, use_container_width=True)
+
+st.markdown('please note that the stock price is affected mostly by the predicted eps, you can go to the company earnings section of [stock data](Stock_Data#company-earnings) to see the predicted eps for the next quarter.')
+
+
 # ------------------------ XGBOOST based recommendation ---------------------------------
+st.header("Machine Learning based recommendation")
+
 stock_ticker = st.text_input(label = 'Type ticker symbol below', value = _default_stonk)
 
 stock_data = getPastStockPrices(st.session_state.recomm_refresh, stock_ticker)
@@ -79,36 +114,3 @@ elif not stock_data.empty:
     st.download_button('Download raw stock data', stock_data.to_csv(), f'{stock_ticker}_data.csv', 'text/csv')
 else:
     st.subheader('No data for this stock exists in the database')
-
-
-# ------------------------ EPS based recommendation ------------------------------------
-st.header("EPS based recommendation")
-
-number_of_stocks = st.slider(
-    label = 'eps_stocks',
-    min_value = 5,
-    max_value = 40,
-    value = 20,
-    step = 1, label_visibility='hidden')
-
-earnings = getStockEarnings2(st.session_state.recomm_refresh)
-# get only stocks that have more than 2 quarters of earnings data
-stocks_with_earnings = earnings.dropna().groupby('stock').filter(lambda x: len(x) > 2)
-# get the stocks that have better eps than their last quarter
-best_earnings = stocks_with_earnings.groupby('stock').apply(lambda x: x.iloc[0]['reportedEPS'] > x.iloc[1]['reportedEPS'])
-# get a subset of the dataframe that only contains the stocks that have better eps than their last quarter
-best_earnings = stocks_with_earnings[stocks_with_earnings['stock'].isin(best_earnings[best_earnings].index)]
-# for each stock get the latest diff in eps and create column for the diff in percent calculated by the previous reportedEPS.
-best_earnings['diff'] = best_earnings.groupby('stock')['reportedEPS'].diff()
-best_earnings['diff_percent'] = best_earnings['diff'] / best_earnings.shift(1)['reportedEPS']
-# get only the latest diff in eps for each stock
-best_earnings = best_earnings.dropna().groupby('stock').apply(lambda x: x.iloc[-1]).sort_values(by='diff_percent', ascending=False)
-# drop inf values
-best_earnings = best_earnings.replace([np.inf, -np.inf], np.nan).dropna()
-
-# plot a bar chart of the percent diff in eps using plotly. the y axis ticks should be in percent, and without points after the decimal
-fig = px.bar(best_earnings.head(number_of_stocks), x='stock', y='diff_percent', title='Best EPS growth in the past quarter', labels={'stock': 'Stock', 'diff_percent': 'EPS growth'})
-fig.update_yaxes(tickformat=".0%")
-st.plotly_chart(fig, use_container_width=True)
-
-st.markdown('please note that the stock price is affected mostly by the predicted eps, you can go to the company earnings section of [stock data](Stock_Data#company-earnings) to see the predicted eps for the next quarter.')
